@@ -26,22 +26,37 @@ const DEMO_MESSAGES: DemoMessage[] = [
       title: '✅ Rezervacija upisana!',
       fields: [
         { icon: '🏠', label: 'Apartman', value: 'Apartman 2' },
-        { icon: '👥', label: 'Gosti', value: 'Marković (4)' },
+        { icon: '👥', label: 'Gosti', value: 'Marković (4 osobe)' },
         { icon: '📅', label: 'Termin', value: '20.06 → 25.06' },
         { icon: '🧹', label: 'Čišćenje', value: '20.06 8:00' },
       ],
     },
-    delay: 1500,
+    delay: 1200,
   },
   {
     type: 'user',
-    content: 'Pošalji im check-in info',
-    delay: 2000,
+    content: 'Pošalji im check-in info i prijavi ih na eVisitor',
+    delay: 1800,
   },
   {
     type: 'bot-text',
     content: '✅ Poslano! Gosti su dobili:\n📶 WiFi: ApartNet / pass1234\n🅿️ Parking: mjesta 3 i 4\n📋 Check-out: do 10h',
-    delay: 1400,
+    delay: 1000,
+  },
+  {
+    type: 'bot-text',
+    content: '🏛️ eVisitor: Prijava spremna!\nTrebam TAN #47 s vaše liste.',
+    delay: 1200,
+  },
+  {
+    type: 'user',
+    content: '284619',
+    delay: 1000,
+  },
+  {
+    type: 'bot-text',
+    content: '🏛️ eVisitor: Prijava uspješna! (ID: 847291)',
+    delay: 1000,
   },
 ]
 

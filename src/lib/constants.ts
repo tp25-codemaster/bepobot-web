@@ -74,6 +74,12 @@ export const FEATURES = [
     example: 'Kampanja 14.08 17.08 15%',
   },
   {
+    icon: '🏛️',
+    title: 'eVisitor prijava',
+    description: 'Bot pripremi sve, vi samo upišete TAN — 10 sekundi umjesto 5 minuta.',
+    example: '"Prijavi Markoviće na eVisitor" → bot: "Trebam TAN #47" → "284619" → ✅',
+  },
+  {
     icon: '⏰',
     title: 'Jutarnji pregled',
     description: 'Svako jutro u 8h sažetak — tko dolazi, odlazi, što pripremiti.',
@@ -129,6 +135,7 @@ export const PRICING_PLANS = [
       { text: 'Upis i pregled rezervacija', included: true },
       { text: 'Automatski check-in za goste', included: true },
       { text: 'Jutarnji pregled rasporeda', included: true },
+      { text: 'eVisitor automatska prijava', included: false },
       { text: 'Last-minute kampanje', included: false },
       { text: 'Koordinacija čišćenja', included: false },
     ],
@@ -142,6 +149,7 @@ export const PRICING_PLANS = [
     badge: 'NAJPOPULARNIJE',
     features: [
       { text: 'Sve iz Startera', included: true },
+      { text: 'eVisitor automatska prijava/odjava gostiju', included: true },
       { text: 'Last-minute kampanje emailom', included: true },
       { text: 'Koordinacija čišćenja', included: true },
       { text: 'Do 5 apartmana', included: true },
@@ -183,6 +191,14 @@ export const FAQ_ITEMS = [
   {
     question: 'Na kojem jeziku bot komunicira?',
     answer: 'Hrvatski i engleski.',
+  },
+  {
+    question: 'Kako radi eVisitor integracija?',
+    answer: 'BepoBot pripremi sve podatke za prijavu automatski. Jedino što vi trebate je upisati TAN broj s vaše liste kad bot zatraži — 10 sekundi umjesto 5 minuta ručnog unosa.',
+  },
+  {
+    question: 'Jesu li moji eVisitor podaci sigurni?',
+    answer: 'Da. Vaši podaci su enkriptirani i pohranjeni sigurno. Nikad ih ne dijelimo s trećim stranama.',
   },
   {
     question: 'Mogu li otkazati kad želim?',
