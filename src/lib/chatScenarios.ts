@@ -229,7 +229,7 @@ export const SCENARIOS: Scenario[] = [
   },
   {
     id: 'askme',
-    name: 'Pitaj me',
+    name: 'AI',
     icon: '🤖',
     keywords: ['pitaj', 'pomoc', 'pomoć', 'kako', 'zašto', 'što je', 'sto je', 'objasni', 'savjet', 'preporuci', 'cijena', 'sezona', 'recenzija', 'gost'],
     messages: [
@@ -278,7 +278,7 @@ const FALLBACK_RESPONSE: ScenarioMessage[] = [
   },
   {
     type: 'bot-actions',
-    actions: ['📋 Nova rezervacija', '📅 Raspored', '🔑 Check-in info', '🧹 Čišćenje', '📣 Kampanja', '🏛️ eVisitor', '🤖 Pitaj me'],
+    actions: ['📋 Nova rezervacija', '📅 Raspored', '🔑 Check-in info', '🧹 Čišćenje', '📣 Kampanja', '🏛️ eVisitor', '🤖 AI'],
     delayMs: 400,
   },
 ]

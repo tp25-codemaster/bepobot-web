@@ -240,7 +240,7 @@ export default function AppSimulation() {
       {/* Quick action bar */}
       <div className="flex-shrink-0 px-3 py-2 bg-white border-t border-border overflow-x-auto no-scrollbar">
         <div className="flex gap-2">
-          {['📅 Raspored', '📋 Nova rezervacija', '🧹 Čišćenje', '🔑 Check-in', '📣 Kampanja', '🏛️ eVisitor', '🤖 Pitaj me'].map(
+          {['📅 Raspored', '📋 Nova rezervacija', '🧹 Čišćenje', '🔑 Check-in', '📣 Kampanja', '🏛️ eVisitor', '🤖 AI'].map(
             (pill) => (
               <button
                 key={pill}
