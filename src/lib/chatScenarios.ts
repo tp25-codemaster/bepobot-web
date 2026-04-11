@@ -227,6 +227,47 @@ export const SCENARIOS: Scenario[] = [
       },
     ],
   },
+  {
+    id: 'askme',
+    name: 'Pitaj me',
+    icon: '🤖',
+    keywords: ['pitaj', 'pomoc', 'pomoć', 'kako', 'zašto', 'što je', 'sto je', 'objasni', 'savjet', 'preporuci', 'cijena', 'sezona', 'recenzija', 'gost'],
+    messages: [
+      {
+        type: 'user',
+        content: 'Koji je najbolji period za podići cijene u Splitu?',
+        delayMs: 600,
+      },
+      {
+        type: 'bot-text',
+        content: '📊 Na temelju podataka za Split i vašeg apartmana:',
+        delayMs: 1200,
+      },
+      {
+        type: 'bot-card',
+        card: {
+          title: '📈 Analiza cijena — Split',
+          fields: [
+            { icon: '🔥', label: 'Vrhunac sezone', value: '15.06 — 15.09' },
+            { icon: '💰', label: 'Preporučena cijena', value: '€120-160/noć' },
+            { icon: '📅', label: 'Najbolji mjesec', value: 'Srpanj (+35% vs. lipanj)' },
+            { icon: '⚡', label: 'Brza popunjenost', value: 'Objavi do 01.03 za ljeto' },
+          ],
+        },
+        delayMs: 800,
+      },
+      {
+        type: 'bot-text',
+        content: 'Vaš Apartman 2 je prošle godine imao 89% popunjenost u srpnju. Preporučam podići cijenu za 15% u odnosu na prošlu godinu.',
+        delayMs: 1000,
+      },
+      {
+        type: 'bot-actions',
+        actions: ['Usporedi s konkurencijom', 'Postavi novu cijenu', 'Analiza za Dubrovnik'],
+        delayMs: 400,
+      },
+    ],
+  },
 ]
 
 const FALLBACK_RESPONSE: ScenarioMessage[] = [
@@ -237,7 +278,7 @@ const FALLBACK_RESPONSE: ScenarioMessage[] = [
   },
   {
     type: 'bot-actions',
-    actions: ['📋 Nova rezervacija', '📅 Raspored', '🔑 Check-in info', '🧹 Čišćenje', '📣 Kampanja', '🏛️ eVisitor'],
+    actions: ['📋 Nova rezervacija', '📅 Raspored', '🔑 Check-in info', '🧹 Čišćenje', '📣 Kampanja', '🏛️ eVisitor', '🤖 Pitaj me'],
     delayMs: 400,
   },
 ]
