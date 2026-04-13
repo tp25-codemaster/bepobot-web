@@ -1,3 +1,6 @@
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import Navbar from '../components/landing/Navbar'
 import HeroChatDemo from '../components/landing/HeroChatDemo'
 import ProblemSection from '../components/landing/ProblemSection'
@@ -11,6 +14,17 @@ import FinalCta from '../components/landing/FinalCta'
 import Footer from '../components/landing/Footer'
 
 export default function LandingPage() {
+  const navigate = useNavigate()
+
+  // Handle Supabase auth callback (email confirmation redirect)
+  useEffect(() => {
+    if (window.location.hash.includes('access_token')) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) navigate('/app', { replace: true })
+      })
+    }
+  }, [navigate])
+
   return (
     <div className="min-h-screen">
       <Navbar />
