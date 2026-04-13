@@ -27,7 +27,7 @@ export default function LoginPage() {
     if (isRegister) {
       const { error } = await signUp(email, password, fullName || undefined)
       if (error) setError(error)
-      else setConfirmSent(true)
+      else navigate('/app')
     } else {
       const { error } = await signIn(email, password)
       if (error) setError(error)
