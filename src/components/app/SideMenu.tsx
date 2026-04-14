@@ -13,6 +13,7 @@ const menuItems = [
   { path: '/app/kalendar', icon: '📅', label: 'Kalendar' },
   { path: '/app/apartmani', icon: '🏠', label: 'Moji apartmani' },
   { path: '/app/kontakti', icon: '👥', label: 'Kontakti' },
+  { path: '/app/gosti', icon: '🧳', label: 'Gosti (CRM)' },
   { path: '/app/evisitor', icon: '🏛️', label: 'eVisitor' },
   { path: '/app/postavke', icon: '⚙️', label: 'Postavke' },
 ]

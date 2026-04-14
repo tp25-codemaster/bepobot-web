@@ -12,6 +12,7 @@ import GuestCheckIn from './pages/GuestCheckIn'
 import KalendarPage from './pages/app/KalendarPage'
 import ApartmaniPage from './pages/app/ApartmaniPage'
 import KontaktiPage from './pages/app/KontaktiPage'
+import GostiPage from './pages/app/GostiPage'
 import EVisitorSettingsPage from './pages/app/EVisitorSettingsPage'
 import PostavkePage from './pages/app/PostavkePage'
 import RezervacijePage from './pages/app/RezervacijePage'
@@ -41,6 +42,9 @@ createRoot(document.getElementById('root')!).render(
           } />
           <Route path="/app/kontakti" element={
             <ProtectedRoute><KontaktiPage /></ProtectedRoute>
+          } />
+          <Route path="/app/gosti" element={
+            <ProtectedRoute><GostiPage /></ProtectedRoute>
           } />
           <Route path="/app/evisitor" element={
             <ProtectedRoute><EVisitorSettingsPage /></ProtectedRoute>
