@@ -3,6 +3,7 @@
     { "source": "/app", "destination": "/index.html" },
     { "source": "/app/:path*", "destination": "/index.html" },
     { "source": "/evisitor", "destination": "/index.html" },
-    { "source": "/evisitor/:path*", "destination": "/index.html" }
+    { "source": "/evisitor/:path*", "destination": "/index.html" },
+    { "source": "/checkin/:token", "destination": "/index.html" }
   ]
 }

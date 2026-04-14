@@ -9,6 +9,7 @@
 
 import https from 'node:https'
 import { Buffer } from 'node:buffer'
+import { randomUUID } from 'node:crypto'
 
 interface HttpsResponse {
   statusCode: number
@@ -252,12 +253,8 @@ export async function runEVisitorCheckIn(
   }
 
   // 3. CHECKIN (real mode)
-  const touristId =
-    g.ID ||
-    'BB-' +
-      Date.now() +
-      '-' +
-      Math.random().toString(36).slice(2, 10).toUpperCase()
+  // eVisitor expects a System.Guid (UUID), not a custom string.
+  const touristId = g.ID || randomUUID()
 
   const checkinPayload = JSON.stringify({
     Facility: g.Facility || '',

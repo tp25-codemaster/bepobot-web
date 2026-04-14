@@ -81,15 +81,36 @@ export async function submitGuestData(
   }
 }
 
+export interface ReservationCheckInResult {
+  success: boolean
+  testMode?: boolean
+  message?: string
+  error?: string
+  checkinError?: string | null
+  checkinStatus?: number
+  touristId?: string
+  touristName?: string
+}
+
 /** Host — okine eVisitor check-in iz rezervacije koja ima popunjen tourist_*. */
 export async function checkInReservation(
   reservationId: string,
   testMode = false
-): Promise<{ success: boolean; error?: string; message?: string }> {
-  const res = await apiPost<{ success: boolean; error?: string; message?: string }>(
+): Promise<ReservationCheckInResult> {
+  const res = await apiPost<ReservationCheckInResult>(
     '/api/reservation-checkin',
     { reservation_id: reservationId, test_mode: testMode }
   )
   if (res.data) return res.data
   return { success: false, error: res.error || 'Greška' }
+}
+
+/** Formatiraj rezultat check-ina u user-friendly poruku. */
+export function formatCheckInError(res: ReservationCheckInResult): string {
+  const parts: string[] = []
+  if (res.error) parts.push(res.error)
+  if (res.checkinError) parts.push(res.checkinError)
+  if (res.checkinStatus !== undefined) parts.push(`HTTP ${res.checkinStatus}`)
+  if (res.message && parts.length === 0) parts.push(res.message)
+  return parts.join(' · ') || 'Nepoznata greška'
 }

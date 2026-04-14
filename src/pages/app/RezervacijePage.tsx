@@ -5,6 +5,7 @@ import { supabase, isDemoMode } from '../../lib/supabase'
 import {
   generateReservationToken,
   checkInReservation,
+  formatCheckInError,
 } from '../../lib/reservations'
 
 interface Apartment {
@@ -377,9 +378,11 @@ function ReservationCard({
     const res = await checkInReservation(r.id, testMode)
     if (res.success) {
       setResult(testMode ? 'Test OK ✓' : 'Prijavljeno na eVisitor ✓')
-      onRefresh()
+      // Ne refreshamo za test mode — ništa se na backendu ne mijenja,
+      // a refresh bi remountao karticu i obrisao poruku.
+      if (!testMode) onRefresh()
     } else {
-      setError(res.error || 'Greška')
+      setError(formatCheckInError(res))
     }
     setCheckingIn(false)
   }
