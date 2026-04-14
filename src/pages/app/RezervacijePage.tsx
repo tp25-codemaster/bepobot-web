@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
@@ -59,6 +59,19 @@ export default function RezervacijePage() {
   const [editing, setEditing] = useState<(Reservation & { isNew?: boolean }) | null>(null)
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming')
+  const formRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to edit form when it opens (so user doesn't lose it at bottom
+  // of the list after clicking "Uredi" on a card near the top).
+  useEffect(() => {
+    if (editing && formRef.current) {
+      // Short delay so the form has actually rendered
+      const t = setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 50)
+      return () => clearTimeout(t)
+    }
+  }, [editing])
 
   useEffect(() => {
     if (isDemoMode) {
@@ -212,21 +225,39 @@ export default function RezervacijePage() {
 
         {/* Form */}
         {editing && (
-          <div className="bg-white rounded-xl border-2 border-primary/30 p-4 space-y-3">
+          <div
+            ref={formRef}
+            className="bg-white rounded-xl border-2 border-primary/30 p-4 space-y-3 scroll-mt-24"
+          >
             <h3 className="font-semibold text-text text-sm">
               {editing.isNew ? 'Nova rezervacija' : 'Uredi rezervaciju'}
             </h3>
 
-            <select
-              value={editing.apartment_id}
-              onChange={e => setEditing({ ...editing, apartment_id: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary outline-none bg-white"
-            >
-              <option value="">Odaberi apartman *</option>
-              {apartments.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-xs text-text-muted mb-1">
+                Apartman *
+              </label>
+              <select
+                value={editing.apartment_id}
+                onChange={e => setEditing({ ...editing, apartment_id: e.target.value })}
+                className={`w-full px-3 py-2 border rounded-lg text-sm outline-none bg-white transition-colors ${
+                  !editing.apartment_id
+                    ? 'border-red-400 focus:border-red-500 ring-1 ring-red-200'
+                    : 'border-border focus:border-primary'
+                }`}
+              >
+                <option value="">— odaberi apartman —</option>
+                {apartments.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              {!editing.apartment_id && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <span>⚠️</span>
+                  <span>Apartman je obavezan za prijavu na eVisitor</span>
+                </p>
+              )}
+            </div>
 
             <input
               type="text"
