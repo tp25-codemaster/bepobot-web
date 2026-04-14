@@ -5,5 +5,11 @@
     { "source": "/evisitor", "destination": "/index.html" },
     { "source": "/evisitor/:path*", "destination": "/index.html" },
     { "source": "/checkin/:token", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/bot-gmail-poll",
+      "schedule": "*/2 * * * *"
+    }
   ]
 }

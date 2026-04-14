@@ -164,6 +164,12 @@ function evisitorDevApi(): Plugin {
         '/api/bot-telegram-resolve.ts'
       )
       mountHandler(server, '/api/bot-chat', '/api/bot-chat.ts')
+      mountHandler(
+        server,
+        '/api/bot-process-email',
+        '/api/bot-process-email.ts'
+      )
+      mountHandler(server, '/api/bot-gmail-poll', '/api/bot-gmail-poll.ts')
     },
   }
 }
