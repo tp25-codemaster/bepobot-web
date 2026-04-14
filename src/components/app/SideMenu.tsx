@@ -64,7 +64,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
           <div className="text-white font-semibold">
             {profile?.full_name || (isDemo ? 'Demo korisnik' : user?.email || 'Korisnik')}
           </div>
-          <div className="text-primary-light text-sm truncate">
+          <div className="text-white/70 text-sm truncate">
             {isDemo ? 'demo@bepobot.hr' : user?.email || ''}
           </div>
           {profile?.plan && (

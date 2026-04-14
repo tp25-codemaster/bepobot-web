@@ -127,9 +127,18 @@ function headerVal(msg: GmailMessage, name: string): string {
 async function listNewMessages(
   accessToken: string
 ): Promise<string[]> {
-  // Filter by known booking senders, newer than 2 days (buffer for cron delays)
-  const query = BOOKING_SENDERS.map((s) => `from:${s}`).join(' OR ')
-  const fullQuery = `(${query}) newer_than:2d`
+  // Match either known sender OR booking-related keywords in subject.
+  // Subject match is looser so we catch test emails and custom booking forms.
+  const fromClause = BOOKING_SENDERS.map((s) => `from:${s}`).join(' OR ')
+  const subjectClause = [
+    'subject:"booking.com"',
+    'subject:"airbnb"',
+    'subject:"rezervacija"',
+    'subject:"reservation"',
+    'subject:"new booking"',
+    'subject:"nova rezervacija"',
+  ].join(' OR ')
+  const fullQuery = `((${fromClause}) OR (${subjectClause})) newer_than:2d`
   const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(fullQuery)}&maxResults=20`
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
