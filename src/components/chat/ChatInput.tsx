@@ -39,7 +39,7 @@ export default function ChatInput({ onSend, disabled = false }: ChatInputProps) 
         // Input stays enabled so the user can start typing the next message
         // while the bot is still processing the previous one. Only the send
         // button is disabled during `disabled` (sending in flight).
-        className="flex-1 px-4 py-3 bg-gray-50 rounded-full text-sm text-text placeholder:text-text-muted/50 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+        className="flex-1 px-4 py-3 bg-gray-50 rounded-full text-base text-text placeholder:text-text-muted/50 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
       />
       <button
         onClick={handleSend}

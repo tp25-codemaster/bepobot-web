@@ -294,7 +294,7 @@ export default function DashboardPage() {
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleChatSend()}
               placeholder="Pitaj BepoBota..."
-              className="flex-1 px-3 py-2 bg-gray-50 rounded-lg text-sm outline-none focus:bg-white focus:ring-1 focus:ring-primary"
+              className="flex-1 px-3 py-2 bg-gray-50 rounded-lg text-base outline-none focus:bg-white focus:ring-1 focus:ring-primary"
             />
             <button
               onClick={handleChatSend}
