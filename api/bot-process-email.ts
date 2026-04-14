@@ -16,7 +16,7 @@
 
 import { getSupabaseAdmin } from '../server/supabase.js'
 import { findConflicts } from '../server/conflict-check.js'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, randomBytes } from 'node:crypto'
 
 interface VercelRequest {
   method?: string
@@ -165,9 +165,8 @@ async function parseWithHaiku(
 }
 
 function generateToken(): string {
-  // Node crypto random 24 bytes → base64url
-  const bytes = require('node:crypto').randomBytes(24) as Buffer
-  return bytes
+  // 24 random bytes → base64url unguessable token
+  return randomBytes(24)
     .toString('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
