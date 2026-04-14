@@ -73,11 +73,13 @@ function formatDate(s: string | null): string {
 }
 
 export default function GostiPage() {
-  const { user } = useAuth()
+  const { user, profile, session } = useAuth()
   const [rows, setRows] = useState<ReservationRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<GuestAggregate | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -175,9 +177,68 @@ export default function GostiPage() {
     })
   }, [guests, search])
 
+  async function handleImport() {
+    if (!session?.access_token) return
+    if (!confirm('Uvesti sve goste iz eVisitor povijesti? Ovo može potrajati.')) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const res = await fetch('/api/evisitor-import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (data.success) {
+        setImportResult(data.message)
+        // Reload guests
+        const { data: newRows } = await supabase
+          .from('reservations')
+          .select('id, tourist_name, tourist_surname, gender, date_of_birth, document_type, document_number, citizenship, city_of_residence, residence_address, guest_email, guest_phone, check_in, check_out, apartment_id, completed_at, evisitor_checked_in_at, created_at, apartments(name)')
+          .eq('user_id', user!.id)
+          .not('tourist_name', 'is', null)
+          .order('check_in', { ascending: false })
+        if (newRows) {
+          const normalized = (newRows as any[]).map((r: any) => ({
+            ...r,
+            apartments: Array.isArray(r.apartments) ? (r.apartments[0] || null) : r.apartments,
+          }))
+          setRows(normalized)
+        }
+      } else {
+        setImportResult(data.error || 'Greška pri uvozu.')
+      }
+    } catch {
+      setImportResult('Greška pri povezivanju.')
+    }
+    setImporting(false)
+  }
+
   return (
     <AppShell title="Gosti">
       <div className="p-4 space-y-4 max-w-2xl mx-auto">
+        {/* Import from eVisitor */}
+        {profile?.evisitor_connected && (
+          <div className="bg-white rounded-xl border border-border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-text-muted">
+                Uvezi povijest gostiju iz eVisitor sustava
+              </div>
+              <button
+                onClick={handleImport}
+                disabled={importing}
+                className="flex-shrink-0 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {importing ? 'Uvozim...' : 'Uvezi iz eVisitora'}
+              </button>
+            </div>
+            {importResult && (
+              <div className={`mt-2 p-2 rounded-lg text-xs ${importResult.includes('Greška') || importResult.includes('error') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                {importResult}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Header stats */}
         <div className="grid grid-cols-3 gap-2">
           <StatCard label="Unikatnih gostiju" value={guests.length} />
