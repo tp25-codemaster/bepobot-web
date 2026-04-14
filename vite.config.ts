@@ -33,9 +33,26 @@ interface DevRes {
 }
 
 type ApiHandler = (
-  req: { method?: string; body: unknown; headers: Record<string, string> },
+  req: {
+    method?: string
+    body: unknown
+    headers: Record<string, string>
+    url?: string
+    query?: Record<string, string>
+  },
   res: DevRes
 ) => Promise<void> | void
+
+function parseQuery(url: string | undefined): Record<string, string> {
+  if (!url) return {}
+  const qIdx = url.indexOf('?')
+  if (qIdx < 0) return {}
+  const qs = url.slice(qIdx + 1)
+  const params = new URLSearchParams(qs)
+  const out: Record<string, string> = {}
+  for (const [k, v] of params) out[k] = v
+  return out
+}
 
 async function readBody(req: import('node:http').IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
@@ -80,7 +97,7 @@ function mountHandler(
 ) {
   server.middlewares.use(route, async (req, res) => {
     try {
-      const body = await readBody(req)
+      const body = req.method === 'GET' ? {} : await readBody(req)
       const handlerModule = (await server.ssrLoadModule(importPath)) as {
         default: ApiHandler
       }
@@ -89,6 +106,8 @@ function mountHandler(
           method: req.method,
           body,
           headers: req.headers as Record<string, string>,
+          url: req.url,
+          query: parseQuery(req.url),
         },
         wrapRes(res)
       )
@@ -116,6 +135,26 @@ function evisitorDevApi(): Plugin {
         server,
         '/api/evisitor-disconnect',
         '/api/evisitor-disconnect.ts'
+      )
+      mountHandler(
+        server,
+        '/api/reservation-create',
+        '/api/reservation-create.ts'
+      )
+      mountHandler(
+        server,
+        '/api/reservation-public',
+        '/api/reservation-public.ts'
+      )
+      mountHandler(
+        server,
+        '/api/reservation-submit',
+        '/api/reservation-submit.ts'
+      )
+      mountHandler(
+        server,
+        '/api/reservation-checkin',
+        '/api/reservation-checkin.ts'
       )
     },
   }

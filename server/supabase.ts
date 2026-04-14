@@ -7,6 +7,26 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
 const SUPABASE_ANON_KEY =
   process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+/**
+ * Admin klijent koji bypassa RLS. Koristiti SAMO za public-facing
+ * endpointe gdje backend mora čitati/pisati tuđe podatke po tokenu
+ * (npr. guest submitanje vlastitih podataka po reservation tokenu).
+ *
+ * NIKAD nemoj proslijediti ovaj klijent nečemu što prima user input
+ * bez eksplicitne provjere tokena.
+ */
+export function getSupabaseAdmin(): SupabaseClient {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      'Missing SUPABASE_SERVICE_ROLE_KEY env var — potrebno za public endpointe'
+    )
+  }
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
 
 export interface AuthedRequest {
   authHeader?: string

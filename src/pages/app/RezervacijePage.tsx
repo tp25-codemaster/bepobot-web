@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
+import {
+  generateReservationToken,
+  checkInReservation,
+} from '../../lib/reservations'
 
 interface Apartment {
   id: string
@@ -18,6 +22,13 @@ interface Reservation {
   check_out: string
   status: 'confirmed' | 'cancelled' | 'completed'
   notes: string | null
+  token: string | null
+  tourist_name: string | null
+  tourist_surname: string | null
+  completed_at: string | null
+  evisitor_checked_in_at: string | null
+  evisitor_tourist_id: string | null
+  evisitor_error: string | null
   apartments?: { name: string }
 }
 
@@ -30,6 +41,13 @@ const EMPTY: Omit<Reservation, 'id' | 'apartments'> = {
   check_out: '',
   status: 'confirmed',
   notes: '',
+  token: null,
+  tourist_name: null,
+  tourist_surname: null,
+  completed_at: null,
+  evisitor_checked_in_at: null,
+  evisitor_tourist_id: null,
+  evisitor_error: null,
 }
 
 export default function RezervacijePage() {
@@ -93,7 +111,10 @@ export default function RezervacijePage() {
     }
 
     if (editing.isNew) {
-      await supabase.from('reservations').insert({ ...data, user_id: user!.id })
+      // Auto-generate self-checkin token on create
+      await supabase
+        .from('reservations')
+        .insert({ ...data, user_id: user!.id, token: generateReservationToken() })
     } else {
       await supabase.from('reservations').update(data).eq('id', editing.id)
     }
@@ -153,30 +174,18 @@ export default function RezervacijePage() {
         ) : (
           <>
             {filtered.map(r => (
-              <div key={r.id} className="bg-white rounded-xl border border-border p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="font-semibold text-text">{r.guest_name}</div>
-                    <div className="text-xs text-text-muted">
-                      {r.apartments?.name || getAptName(r.apartment_id)} · {r.guests_count} {r.guests_count === 1 ? 'gost' : 'gostiju'}
-                    </div>
-                  </div>
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[r.status]}`}>
-                    {statusLabels[r.status]}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-sm text-text-muted mb-2">
-                  <span>📅 {formatDate(r.check_in)} → {formatDate(r.check_out)}</span>
-                  <span className="text-xs">({nights(r.check_in, r.check_out)} noci)</span>
-                </div>
-                {r.notes && (
-                  <div className="text-xs text-text-muted bg-gray-50 rounded-lg p-2 mb-2">📝 {r.notes}</div>
-                )}
-                <div className="flex gap-2 mt-2">
-                  <button onClick={() => setEditing({ ...r })} className="text-xs text-primary font-medium">Uredi</button>
-                  <button onClick={() => handleDelete(r.id)} className="text-xs text-red-500 font-medium">Obrisi</button>
-                </div>
-              </div>
+              <ReservationCard
+                key={r.id}
+                r={r}
+                apartmentName={r.apartments?.name || getAptName(r.apartment_id)}
+                formatDate={formatDate}
+                nights={nights}
+                statusColors={statusColors}
+                statusLabels={statusLabels}
+                onEdit={() => setEditing({ ...r })}
+                onDelete={() => handleDelete(r.id)}
+                onRefresh={loadData}
+              />
             ))}
 
             {filtered.length === 0 && !editing && (
@@ -305,5 +314,192 @@ export default function RezervacijePage() {
         )}
       </div>
     </AppShell>
+  )
+}
+
+// ─── ReservationCard with self-checkin section ────────────────────────────
+
+interface ReservationCardProps {
+  r: Reservation
+  apartmentName: string
+  formatDate: (d: string) => string
+  nights: (a: string, b: string) => number
+  statusColors: Record<string, string>
+  statusLabels: Record<string, string>
+  onEdit: () => void
+  onDelete: () => void
+  onRefresh: () => void
+}
+
+function ReservationCard({
+  r,
+  apartmentName,
+  formatDate,
+  nights,
+  statusColors,
+  statusLabels,
+  onEdit,
+  onDelete,
+  onRefresh,
+}: ReservationCardProps) {
+  const [copied, setCopied] = useState(false)
+  const [generatingToken, setGeneratingToken] = useState(false)
+  const [checkingIn, setCheckingIn] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+
+  const hasGuestData = Boolean(r.tourist_name)
+  const hasEvisitorCheckin = Boolean(r.evisitor_checked_in_at)
+  const link = r.token ? `${window.location.origin}/checkin/${r.token}` : ''
+
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function handleGenerateToken() {
+    setGeneratingToken(true)
+    const token = generateReservationToken()
+    await supabase.from('reservations').update({ token }).eq('id', r.id)
+    setGeneratingToken(false)
+    onRefresh()
+  }
+
+  async function handleCheckIn(testMode: boolean) {
+    setCheckingIn(true)
+    setError(null)
+    setResult(null)
+    const res = await checkInReservation(r.id, testMode)
+    if (res.success) {
+      setResult(testMode ? 'Test OK ✓' : 'Prijavljeno na eVisitor ✓')
+      onRefresh()
+    } else {
+      setError(res.error || 'Greška')
+    }
+    setCheckingIn(false)
+  }
+
+  // Guest check-in status pill (shows self-checkin state, independent of host status)
+  let selfCheckinBadge: { label: string; cls: string } | null = null
+  if (r.token) {
+    if (hasEvisitorCheckin) {
+      selfCheckinBadge = { label: '✓ Prijavljen', cls: 'bg-green-100 text-green-700' }
+    } else if (hasGuestData) {
+      selfCheckinBadge = { label: '📝 Popunjeno', cls: 'bg-blue-100 text-blue-700' }
+    } else {
+      selfCheckinBadge = { label: '⏳ Čeka gosta', cls: 'bg-yellow-100 text-yellow-800' }
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-border p-4">
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <div className="font-semibold text-text">{r.guest_name}</div>
+          <div className="text-xs text-text-muted">
+            {apartmentName} · {r.guests_count} {r.guests_count === 1 ? 'gost' : 'gostiju'}
+          </div>
+        </div>
+        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[r.status]}`}>
+          {statusLabels[r.status]}
+        </span>
+      </div>
+      <div className="flex items-center gap-4 text-sm text-text-muted mb-2">
+        <span>📅 {formatDate(r.check_in)} → {formatDate(r.check_out)}</span>
+        <span className="text-xs">({nights(r.check_in, r.check_out)} noci)</span>
+      </div>
+      {r.notes && (
+        <div className="text-xs text-text-muted bg-gray-50 rounded-lg p-2 mb-2">📝 {r.notes}</div>
+      )}
+
+      {/* Self-checkin section */}
+      <div className="mt-3 pt-3 border-t border-border">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+            Self check-in
+          </div>
+          {selfCheckinBadge && (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${selfCheckinBadge.cls}`}>
+              {selfCheckinBadge.label}
+            </span>
+          )}
+        </div>
+
+        {!r.token ? (
+          <button
+            onClick={handleGenerateToken}
+            disabled={generatingToken}
+            className="w-full py-2 text-xs font-medium border-2 border-dashed border-border rounded-lg text-text-muted hover:border-primary hover:text-primary transition-colors"
+          >
+            {generatingToken ? 'Generiram...' : '🔗 Generiraj link za gosta'}
+          </button>
+        ) : (
+          <div className="space-y-2">
+            {hasGuestData && (
+              <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
+                👤 {r.tourist_name} {r.tourist_surname}
+                {r.completed_at && (
+                  <div className="text-blue-600 mt-0.5">
+                    Popunjeno {new Date(r.completed_at).toLocaleString('hr-HR')}
+                  </div>
+                )}
+              </div>
+            )}
+            {hasEvisitorCheckin && r.evisitor_checked_in_at && (
+              <div className="text-xs bg-green-50 border border-green-200 rounded p-2 text-green-800">
+                🏛️ eVisitor: prijavljen {new Date(r.evisitor_checked_in_at).toLocaleString('hr-HR')}
+                {r.evisitor_tourist_id && <> · ID {r.evisitor_tourist_id}</>}
+              </div>
+            )}
+            {result && (
+              <div className="text-xs bg-green-50 border border-green-200 rounded p-2 text-green-700">
+                {result}
+              </div>
+            )}
+            {error && (
+              <div className="text-xs bg-red-50 border border-red-200 rounded p-2 text-red-700 break-words">
+                {error}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleCopyLink}
+                className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-text-muted font-medium rounded-lg transition-colors"
+              >
+                {copied ? '✓ Kopirano' : '📋 Kopiraj link'}
+              </button>
+              {hasGuestData && !hasEvisitorCheckin && (
+                <>
+                  <button
+                    onClick={() => handleCheckIn(true)}
+                    disabled={checkingIn}
+                    className="text-xs px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-medium rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    🧪 Test
+                  </button>
+                  <button
+                    onClick={() => handleCheckIn(false)}
+                    disabled={checkingIn}
+                    className="text-xs px-3 py-1.5 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    🏛️ Prijavi na eVisitor
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2 mt-3">
+        <button onClick={onEdit} className="text-xs text-primary font-medium">Uredi</button>
+        <button onClick={onDelete} className="text-xs text-red-500 font-medium">Obrisi</button>
+      </div>
+    </div>
   )
 }

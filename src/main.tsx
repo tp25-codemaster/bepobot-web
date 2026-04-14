@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import AppSimulation from './pages/AppSimulation'
 import EVisitorCheckIn from './pages/EVisitorCheckIn'
+import GuestCheckIn from './pages/GuestCheckIn'
 import KalendarPage from './pages/app/KalendarPage'
 import ApartmaniPage from './pages/app/ApartmaniPage'
 import KontaktiPage from './pages/app/KontaktiPage'
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/app/login" element={<LoginPage />} />
+          <Route path="/checkin/:token" element={<GuestCheckIn />} />
 
           {/* Protected app routes */}
           <Route path="/app" element={
