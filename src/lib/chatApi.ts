@@ -1,6 +1,5 @@
 import { supabase, isDemoMode } from './supabase'
-
-const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://tonkopuljiz.app.n8n.cloud/webhook'
+import { apiPost } from './apiClient'
 
 export interface ChatMessage {
   id: string
@@ -12,7 +11,14 @@ export interface ChatMessage {
   created_at: string
 }
 
-interface WebhookResponse {
+interface BotChatResponse {
+  success: boolean
+  reply?: string
+  toolsExecuted?: string[]
+  error?: string
+}
+
+export interface WebhookResponse {
   type?: 'text' | 'card' | 'quick_actions'
   content?: string
   actions?: string[]
@@ -63,28 +69,35 @@ export async function saveMessage(
   return data as ChatMessage
 }
 
-// Send message to n8n webhook and get response
+/**
+ * Send message to /api/bot-chat (Vercel serverless, authed by Supabase JWT).
+ * Returns a WebhookResponse-shaped object so existing useChat consumer keeps working.
+ */
 export async function sendToWebhook(
-  userId: string,
+  _userId: string,
   message: string,
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>,
 ): Promise<WebhookResponse> {
   try {
-    const res = await fetch(`${WEBHOOK_URL}/bepobot-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: userId,
-        message,
-        timestamp: new Date().toISOString(),
-      }),
+    const res = await apiPost<BotChatResponse>('/api/bot-chat', {
+      message,
+      history,
     })
-
-    if (!res.ok) throw new Error(`Webhook error: ${res.status}`)
-
-    const data = await res.json()
-    return data as WebhookResponse
+    if (!res.ok || !res.data?.success) {
+      return {
+        type: 'text',
+        content:
+          res.data?.error ||
+          res.error ||
+          'Ups, bot trenutno ne odgovara. Pokušaj za trenutak.',
+      }
+    }
+    return {
+      type: 'text',
+      content: res.data.reply || '(prazan odgovor)',
+    }
   } catch (err) {
-    console.error('Webhook failed:', err)
+    console.error('bot-chat failed:', err)
     return {
       type: 'text',
       content: 'Ups, nešto je pošlo krivo. Pokušajte ponovo za trenutak.',

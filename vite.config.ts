@@ -163,6 +163,7 @@ function evisitorDevApi(): Plugin {
         '/api/bot-telegram-resolve',
         '/api/bot-telegram-resolve.ts'
       )
+      mountHandler(server, '/api/bot-chat', '/api/bot-chat.ts')
     },
   }
 }

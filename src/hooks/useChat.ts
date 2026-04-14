@@ -85,9 +85,19 @@ export function useChat() {
         saveMessage(user.id, 'user', text)
       }
 
-      // Call webhook
+      // Call webhook. Pass last 10 text messages as conversation history
+      // so the bot has some short-term memory.
       setSending(true)
-      const response = await sendToWebhook(userId, text)
+      const history = messages
+        .filter((m) => (m.type === 'user' || m.type === 'bot-text') && m.content)
+        .slice(-10)
+        .map((m) => ({
+          role: (m.type === 'user' ? 'user' : 'assistant') as
+            | 'user'
+            | 'assistant',
+          content: m.content || '',
+        }))
+      const response = await sendToWebhook(userId, text, history)
       setSending(false)
 
       // Parse response into display messages
