@@ -246,7 +246,7 @@ export default function AppSimulation() {
         {messages.map((msg, i) => {
           if (msg.type === 'user') {
             return (
-              <ChatBubble key={msg.id || i} role="user" animate>
+              <ChatBubble key={msg.id || i} role="user" animate timestamp={msg.timestamp}>
                 {msg.content}
               </ChatBubble>
             )
@@ -271,7 +271,7 @@ export default function AppSimulation() {
             )
           }
           return (
-            <ChatBubble key={msg.id || i} role="bot" animate>
+            <ChatBubble key={msg.id || i} role="bot" animate timestamp={msg.timestamp}>
               {msg.content?.split('\n').map((line, j) => (
                 <span key={j}>
                   {line}
