@@ -192,8 +192,8 @@ export default function AppSimulation() {
       <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       {/* Header */}
-      <div className="bg-primary flex-shrink-0">
-        <div className="flex items-center justify-between px-4 h-14 pt-[env(safe-area-inset-top)]">
+      <div className="bg-primary flex-shrink-0 pt-[env(safe-area-inset-top)]">
+        <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMenuOpen(true)}
