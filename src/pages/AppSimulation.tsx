@@ -6,6 +6,7 @@ import TypingIndicator from '../components/chat/TypingIndicator'
 import ChatInput from '../components/chat/ChatInput'
 import SideMenu from '../components/app/SideMenu'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { useChat, type DisplayMessage } from '../hooks/useChat'
 import {
   SCENARIOS,
@@ -41,7 +42,7 @@ export default function AppSimulation() {
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const hasStartedOnboarding = useRef(false)
 
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const needsOnboarding = isDemo || !profile?.onboarding_complete
 
   const clearTimeouts = useCallback(() => {
@@ -64,7 +65,7 @@ export default function AppSimulation() {
     if (needsOnboarding && messages.length === 0) {
       hasStartedOnboarding.current = true
       const welcomeMsgs = getWelcomeMessages()
-      setOnboarding({ step: 'ask_apartment' })
+      setOnboarding({ step: 'ask_name' })
       playBotTexts(welcomeMsgs)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -158,6 +159,33 @@ export default function AppSimulation() {
       const result = processOnboardingInput(text, onboarding)
       setOnboarding(result.state)
       playBotTexts(result.botMessages)
+
+      // Handle onboarding actions
+      if (result.action === 'save_name' && result.actionData && user) {
+        supabase.from('profiles').update({ full_name: result.actionData.fullName }).eq('id', user.id)
+      }
+      if (result.action === 'save_apartment' && result.actionData && user) {
+        supabase.from('apartments').insert({
+          user_id: user.id,
+          name: result.actionData.name,
+          wifi_password: result.actionData.wifi,
+        })
+      }
+      if (result.action === 'save_cleaner' && result.actionData && user) {
+        const contact = result.actionData.contact || ''
+        const isEmail = contact.includes('@')
+        supabase.from('contacts').insert({
+          user_id: user.id,
+          name: result.actionData.name,
+          role: 'cleaner',
+          email: isEmail ? contact : null,
+          phone: !isEmail ? contact : null,
+        })
+      }
+      if (result.action === 'complete_onboarding' && user) {
+        supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id)
+      }
+
       if (result.nextStep === 'complete') {
         setTimeout(() => setOnboarding(null), 3000)
       }
