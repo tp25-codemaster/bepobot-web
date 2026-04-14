@@ -16,6 +16,13 @@
 
 html {
   scroll-behavior: smooth;
+  overscroll-behavior-x: none;
+}
+
+/* Block iOS PWA swipe-back gesture on app pages */
+body.app-mode {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {

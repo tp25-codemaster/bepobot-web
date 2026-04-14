@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 
 interface UseSwipeMenuOptions {
   onOpen: () => void
@@ -11,19 +11,22 @@ export function useSwipeMenu({ onOpen, onClose, isOpen }: UseSwipeMenuOptions) {
   const touchStartY = useRef(0)
   const touchCurrentX = useRef(0)
   const isSwiping = useRef(false)
-  const [drawerOffset, setDrawerOffset] = useState(0)
+  const isEdgeSwipe = useRef(false)
 
-  // Edge swipe to open (touch starts within 30px of left edge)
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const x = e.touches[0].clientX
     const y = e.touches[0].clientY
     touchStartX.current = x
     touchStartY.current = y
     touchCurrentX.current = x
+    isEdgeSwipe.current = false
 
-    // Only start swipe-to-open if touch begins near left edge and menu is closed
-    if (!isOpen && x < 30) {
+    // Edge swipe to open (touch starts within 25px of left edge)
+    if (!isOpen && x < 25) {
       isSwiping.current = true
+      isEdgeSwipe.current = true
+      // Block iOS back gesture by preventing default
+      e.preventDefault()
     }
     // Swipe-to-close when menu is open
     if (isOpen) {
@@ -43,38 +46,33 @@ export function useSwipeMenu({ onOpen, onClose, isOpen }: UseSwipeMenuOptions) {
     const dy = Math.abs(y - touchStartY.current)
     if (dy > dx * 1.5) {
       isSwiping.current = false
-      setDrawerOffset(0)
       return
     }
 
-    if (!isOpen) {
-      // Opening: offset goes from -288 (closed) towards 0 (open)
-      const drag = Math.min(x - touchStartX.current, 288)
-      if (drag > 0) setDrawerOffset(-288 + drag)
-    } else {
-      // Closing: offset goes from 0 (open) towards -288 (closed)
-      const drag = touchStartX.current - x
-      if (drag > 0) setDrawerOffset(-Math.min(drag, 288))
+    // Prevent browser back gesture during our swipe
+    if (isEdgeSwipe.current) {
+      e.preventDefault()
     }
-  }, [isOpen])
+  }, [])
 
   const handleTouchEnd = useCallback(() => {
     if (!isSwiping.current) return
     isSwiping.current = false
+    isEdgeSwipe.current = false
 
     const dx = touchCurrentX.current - touchStartX.current
 
-    if (!isOpen && dx > 80) {
+    if (!isOpen && dx > 60) {
       onOpen()
-    } else if (isOpen && dx < -80) {
+    } else if (isOpen && dx < -60) {
       onClose()
     }
-    setDrawerOffset(0)
   }, [isOpen, onOpen, onClose])
 
   useEffect(() => {
-    document.addEventListener('touchstart', handleTouchStart, { passive: true })
-    document.addEventListener('touchmove', handleTouchMove, { passive: true })
+    // MUST use passive: false for touchstart/touchmove to allow preventDefault
+    document.addEventListener('touchstart', handleTouchStart, { passive: false })
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
     document.addEventListener('touchend', handleTouchEnd, { passive: true })
     return () => {
       document.removeEventListener('touchstart', handleTouchStart)
@@ -82,6 +80,4 @@ export function useSwipeMenu({ onOpen, onClose, isOpen }: UseSwipeMenuOptions) {
       document.removeEventListener('touchend', handleTouchEnd)
     }
   }, [handleTouchStart, handleTouchMove, handleTouchEnd])
-
-  return { drawerOffset }
 }
