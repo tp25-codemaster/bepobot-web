@@ -18,8 +18,8 @@ interface VercelResponse {
   end: () => void
 }
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || ''
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim()
+const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim()
 const REDIRECT_URI = 'https://bepobot-web.vercel.app/api/gmail-callback'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
