@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 interface ChatInputProps {
   onSend: (message: string) => void
@@ -8,6 +8,16 @@ interface ChatInputProps {
 export default function ChatInput({ onSend, disabled = false }: ChatInputProps) {
   const [value, setValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const wasDisabled = useRef(disabled)
+
+  // When bot finishes responding, return focus to the input so the user
+  // can immediately continue typing without clicking.
+  useEffect(() => {
+    if (wasDisabled.current && !disabled) {
+      inputRef.current?.focus()
+    }
+    wasDisabled.current = disabled
+  }, [disabled])
 
   const handleSend = () => {
     const trimmed = value.trim()
@@ -26,8 +36,10 @@ export default function ChatInput({ onSend, disabled = false }: ChatInputProps) 
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
         placeholder="Napišite poruku..."
-        disabled={disabled}
-        className="flex-1 px-4 py-3 bg-gray-50 rounded-full text-sm text-text placeholder:text-text-muted/50 outline-none focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
+        // Input stays enabled so the user can start typing the next message
+        // while the bot is still processing the previous one. Only the send
+        // button is disabled during `disabled` (sending in flight).
+        className="flex-1 px-4 py-3 bg-gray-50 rounded-full text-sm text-text placeholder:text-text-muted/50 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
       />
       <button
         onClick={handleSend}
