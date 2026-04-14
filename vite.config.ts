@@ -156,6 +156,8 @@ function evisitorDevApi(): Plugin {
         '/api/reservation-checkin',
         '/api/reservation-checkin.ts'
       )
+      mountHandler(server, '/api/bot-checkin', '/api/bot-checkin.ts')
+      mountHandler(server, '/api/bot-reservations', '/api/bot-reservations.ts')
     },
   }
 }
