@@ -16,6 +16,7 @@ import GostiPage from './pages/app/GostiPage'
 import EVisitorSettingsPage from './pages/app/EVisitorSettingsPage'
 import PostavkePage from './pages/app/PostavkePage'
 import RezervacijePage from './pages/app/RezervacijePage'
+import DashboardPage from './pages/app/DashboardPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -29,6 +30,9 @@ createRoot(document.getElementById('root')!).render(
 
           {/* Protected app routes */}
           <Route path="/app" element={
+            <ProtectedRoute><DashboardPage /></ProtectedRoute>
+          } />
+          <Route path="/app/chat" element={
             <ProtectedRoute><AppSimulation /></ProtectedRoute>
           } />
           <Route path="/app/rezervacije" element={
