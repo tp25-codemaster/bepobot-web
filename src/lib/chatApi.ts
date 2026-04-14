@@ -29,18 +29,14 @@ export interface WebhookResponse {
 }
 
 // Load last N messages from Supabase
-export async function loadMessages(userId: string, limit = 50): Promise<ChatMessage[]> {
+export async function loadMessages(userId: string): Promise<ChatMessage[]> {
   if (isDemoMode) return []
 
   const { data, error } = await supabase
     .from('messages')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-
-  // Reverse to get chronological order (oldest first)
-  if (data) data.reverse()
+    .order('created_at', { ascending: true })
 
   if (error) {
     console.error('Failed to load messages:', error)
