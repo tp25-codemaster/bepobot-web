@@ -131,12 +131,12 @@ async function listNewMessages(
   // Subject match is looser so we catch test emails and custom booking forms.
   const fromClause = BOOKING_SENDERS.map((s) => `from:${s}`).join(' OR ')
   const subjectClause = [
-    'subject:"booking.com"',
-    'subject:"airbnb"',
-    'subject:"rezervacija"',
-    'subject:"reservation"',
-    'subject:"new booking"',
-    'subject:"nova rezervacija"',
+    'subject:booking',
+    'subject:airbnb',
+    'subject:rezervacij',
+    'subject:reservation',
+    'subject:confirmation',
+    'subject:potvrda',
   ].join(' OR ')
   const fullQuery = `((${fromClause}) OR (${subjectClause})) newer_than:2d`
   const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(fullQuery)}&maxResults=20`
