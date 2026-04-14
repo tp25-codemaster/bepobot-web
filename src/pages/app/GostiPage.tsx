@@ -80,6 +80,8 @@ export default function GostiPage() {
   const [selected, setSelected] = useState<GuestAggregate | null>(null)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<string | null>(null)
+  const [findingContacts, setFindingContacts] = useState(false)
+  const [contactResult, setContactResult] = useState<string | null>(null)
   const [minStays, setMinStays] = useState(0)
 
   useEffect(() => {
@@ -218,28 +220,95 @@ export default function GostiPage() {
     setImporting(false)
   }
 
+  async function handleFindContacts() {
+    if (!session?.access_token) return
+    const guestsWithoutEmail = guests.filter(g => !g.email).length
+    if (!confirm(`Pretražiti Gmail za email adrese ${guestsWithoutEmail} gostiju bez kontakta?`)) return
+    setFindingContacts(true)
+    setContactResult(null)
+    try {
+      const res = await fetch('/api/evisitor-find-contacts', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (data.success) {
+        setContactResult(data.message)
+        // Reload guests
+        const { data: newRows } = await supabase
+          .from('reservations')
+          .select('id, tourist_name, tourist_surname, gender, date_of_birth, document_type, document_number, citizenship, city_of_residence, residence_address, guest_email, guest_phone, check_in, check_out, apartment_id, completed_at, evisitor_checked_in_at, created_at, apartments(name)')
+          .eq('user_id', user!.id)
+          .not('tourist_name', 'is', null)
+          .order('check_in', { ascending: false })
+        if (newRows) {
+          const normalized = (newRows as any[]).map((r: any) => ({
+            ...r,
+            apartments: Array.isArray(r.apartments) ? (r.apartments[0] || null) : r.apartments,
+          }))
+          setRows(normalized)
+        }
+      } else {
+        setContactResult(data.error || 'Greška.')
+      }
+    } catch {
+      setContactResult('Greška pri povezivanju.')
+    }
+    setFindingContacts(false)
+  }
+
+  const guestsWithoutEmail = guests.filter(g => !g.email).length
+
   return (
     <AppShell title="Gosti">
       <div className="p-4 space-y-4 max-w-2xl mx-auto">
-        {/* Import from eVisitor */}
-        {profile?.evisitor_connected && (
-          <div className="bg-white rounded-xl border border-border p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs text-text-muted">
-                Uvezi povijest gostiju iz eVisitor sustava
-              </div>
-              <button
-                onClick={handleImport}
-                disabled={importing}
-                className="flex-shrink-0 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {importing ? 'Uvozim...' : 'Uvezi iz eVisitora'}
-              </button>
-            </div>
-            {importResult && (
-              <div className={`mt-2 p-2 rounded-lg text-xs ${importResult.includes('Greška') || importResult.includes('error') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                {importResult}
-              </div>
+        {/* Import & Find contacts */}
+        {(profile?.evisitor_connected || profile?.gmail_connected) && (
+          <div className="bg-white rounded-xl border border-border p-3 space-y-2">
+            {/* eVisitor import */}
+            {profile?.evisitor_connected && (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs text-text-muted">
+                    Uvezi povijest gostiju iz eVisitor sustava
+                  </div>
+                  <button
+                    onClick={handleImport}
+                    disabled={importing}
+                    className="flex-shrink-0 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {importing ? 'Uvozim...' : 'Uvezi iz eVisitora'}
+                  </button>
+                </div>
+                {importResult && (
+                  <div className={`mt-2 p-2 rounded-lg text-xs ${importResult.includes('Greška') || importResult.includes('error') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                    {importResult}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Gmail contact finder */}
+            {profile?.gmail_connected && guestsWithoutEmail > 0 && (
+              <>
+                <div className="border-t border-border pt-2 flex items-center justify-between gap-3">
+                  <div className="text-xs text-text-muted">
+                    {guestsWithoutEmail} gostiju bez emaila — pretraži Gmail
+                  </div>
+                  <button
+                    onClick={handleFindContacts}
+                    disabled={findingContacts}
+                    className="flex-shrink-0 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {findingContacts ? 'Tražim...' : 'Pronađi kontakte'}
+                  </button>
+                </div>
+                {contactResult && (
+                  <div className={`p-2 rounded-lg text-xs ${contactResult.includes('Greška') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                    {contactResult}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
