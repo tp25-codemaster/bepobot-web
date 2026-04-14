@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, type TouchEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, type TouchEvent as ReactTouchEvent} from 'react'
 import ChatBubble from '../components/chat/ChatBubble'
 import ChatCard from '../components/chat/ChatCard'
 import QuickActions from '../components/chat/QuickActions'
@@ -18,6 +18,7 @@ import {
   processOnboardingInput,
   type OnboardingState,
 } from '../lib/onboarding'
+import { useSwipeMenu } from '../hooks/useSwipeMenu'
 
 export default function AppSimulation() {
   const {
@@ -31,6 +32,7 @@ export default function AppSimulation() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [activeScenario, setActiveScenario] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  useSwipeMenu({ onOpen: () => setMenuOpen(true), onClose: () => setMenuOpen(false), isOpen: menuOpen })
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [pullDistance, setPullDistance] = useState(0)
@@ -248,10 +250,10 @@ export default function AppSimulation() {
       <div
         ref={chatRef}
         className="flex-1 overflow-y-auto p-4 space-y-3 relative"
-        onTouchStart={(e: TouchEvent) => {
+        onTouchStart={(e: ReactTouchEvent) => {
           touchStartY.current = e.touches[0].clientY
         }}
-        onTouchMove={(e: TouchEvent) => {
+        onTouchMove={(e: ReactTouchEvent) => {
           if (!chatRef.current || chatRef.current.scrollTop > 0) return
           const dy = e.touches[0].clientY - touchStartY.current
           if (dy > 0 && dy < 120) setPullDistance(dy)

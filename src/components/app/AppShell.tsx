@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SideMenu from './SideMenu'
+import { useSwipeMenu } from '../../hooks/useSwipeMenu'
 
 interface AppShellProps {
   title: string
@@ -10,6 +11,7 @@ interface AppShellProps {
 export default function AppShell({ title, children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
+  useSwipeMenu({ onOpen: () => setMenuOpen(true), onClose: () => setMenuOpen(false), isOpen: menuOpen })
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
