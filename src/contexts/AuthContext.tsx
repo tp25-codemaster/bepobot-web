@@ -10,6 +10,9 @@ interface Profile {
   evisitor_password: string | null
   evisitor_connected: boolean
   evisitor_auto_checkin: boolean
+  telegram_user_id: number | null
+  telegram_pairing_code: string | null
+  telegram_pairing_expires_at: string | null
   created_at: string
 }
 

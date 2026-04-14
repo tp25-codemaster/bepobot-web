@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
+import TelegramPairingCard from '../../components/app/TelegramPairingCard'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   connectEVisitor,
@@ -370,6 +371,9 @@ export default function EVisitorSettingsPage() {
                 </button>
               </div>
             </div>
+
+            {/* Telegram bot pairing */}
+            <TelegramPairingCard />
 
             {/* Activity log */}
             <div className="bg-white rounded-xl border border-border p-4">

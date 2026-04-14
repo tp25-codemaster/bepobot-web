@@ -158,6 +158,11 @@ function evisitorDevApi(): Plugin {
       )
       mountHandler(server, '/api/bot-checkin', '/api/bot-checkin.ts')
       mountHandler(server, '/api/bot-reservations', '/api/bot-reservations.ts')
+      mountHandler(
+        server,
+        '/api/bot-telegram-resolve',
+        '/api/bot-telegram-resolve.ts'
+      )
     },
   }
 }
