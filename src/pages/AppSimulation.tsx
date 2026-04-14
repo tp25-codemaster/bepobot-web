@@ -220,7 +220,7 @@ export default function AppSimulation() {
                 DEMO
               </span>
             )}
-            <a href="/" className="text-white/60 text-sm hover:text-white transition-colors">
+            <a href="/app" className="text-white/60 text-sm hover:text-white transition-colors">
               ← Natrag
             </a>
           </div>
