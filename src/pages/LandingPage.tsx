@@ -45,7 +45,7 @@ export default function LandingPage() {
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
                 <a
                   href="/app"
-                  className="px-8 py-4 bg-primary-light text-dark font-bold rounded-xl text-center hover:brightness-110 transition-all hover:shadow-lg hover:shadow-primary-light/20"
+                  className="px-8 py-4 bg-white text-primary font-bold rounded-xl text-center hover:bg-white/90 transition-all hover:shadow-lg hover:shadow-white/20"
                 >
                   Započni besplatno 14 dana
                 </a>
