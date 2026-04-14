@@ -13,6 +13,7 @@ import ApartmaniPage from './pages/app/ApartmaniPage'
 import KontaktiPage from './pages/app/KontaktiPage'
 import EVisitorSettingsPage from './pages/app/EVisitorSettingsPage'
 import PostavkePage from './pages/app/PostavkePage'
+import RezervacijePage from './pages/app/RezervacijePage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -26,6 +27,9 @@ createRoot(document.getElementById('root')!).render(
           {/* Protected app routes */}
           <Route path="/app" element={
             <ProtectedRoute><AppSimulation /></ProtectedRoute>
+          } />
+          <Route path="/app/rezervacije" element={
+            <ProtectedRoute><RezervacijePage /></ProtectedRoute>
           } />
           <Route path="/app/kalendar" element={
             <ProtectedRoute><KalendarPage /></ProtectedRoute>

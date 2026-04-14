@@ -9,6 +9,7 @@ interface SideMenuProps {
 
 const menuItems = [
   { path: '/app', icon: '💬', label: 'Chat' },
+  { path: '/app/rezervacije', icon: '📋', label: 'Rezervacije' },
   { path: '/app/kalendar', icon: '📅', label: 'Kalendar' },
   { path: '/app/apartmani', icon: '🏠', label: 'Moji apartmani' },
   { path: '/app/kontakti', icon: '👥', label: 'Kontakti' },
