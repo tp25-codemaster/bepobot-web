@@ -11,14 +11,15 @@ interface Apartment {
   parking: string | null
   rules: string | null
   checkin_instructions: string | null
+  evisitor_facility_code: string | null
 }
 
 const DEMO_APARTMENTS: Apartment[] = [
-  { id: '1', name: 'Apartman 1 - Centar', wifi_ssid: 'ApartmanNet', wifi_password: 'pass1234', parking: 'Ispred kuce, mjesto 3', rules: null, checkin_instructions: null },
-  { id: '2', name: 'Apartman 2 - More', wifi_ssid: 'SeaView_WiFi', wifi_password: 'more2024', parking: 'Garaza, -1 kat', rules: null, checkin_instructions: null },
+  { id: '1', name: 'Apartman 1 - Centar', wifi_ssid: 'ApartmanNet', wifi_password: 'pass1234', parking: 'Ispred kuce, mjesto 3', rules: null, checkin_instructions: null, evisitor_facility_code: '0000022' },
+  { id: '2', name: 'Apartman 2 - More', wifi_ssid: 'SeaView_WiFi', wifi_password: 'more2024', parking: 'Garaza, -1 kat', rules: null, checkin_instructions: null, evisitor_facility_code: null },
 ]
 
-const EMPTY: Apartment = { id: '', name: '', wifi_ssid: '', wifi_password: '', parking: '', rules: '', checkin_instructions: '' }
+const EMPTY: Apartment = { id: '', name: '', wifi_ssid: '', wifi_password: '', parking: '', rules: '', checkin_instructions: '', evisitor_facility_code: '' }
 
 export default function ApartmaniPage() {
   const { user } = useAuth()
@@ -75,6 +76,7 @@ export default function ApartmaniPage() {
           parking: editing.parking || null,
           rules: editing.rules || null,
           checkin_instructions: editing.checkin_instructions || null,
+          evisitor_facility_code: editing.evisitor_facility_code || null,
         })
         .eq('id', editing.id)
     } else {
@@ -89,6 +91,7 @@ export default function ApartmaniPage() {
           parking: editing.parking || null,
           rules: editing.rules || null,
           checkin_instructions: editing.checkin_instructions || null,
+          evisitor_facility_code: editing.evisitor_facility_code || null,
         })
     }
 
@@ -136,6 +139,17 @@ export default function ApartmaniPage() {
                   </div>
                 </div>
                 <div className="space-y-2 text-sm">
+                  {apt.evisitor_facility_code ? (
+                    <div className="flex items-center gap-2 text-text-muted">
+                      <span>🏛️</span>
+                      <span className="font-mono text-xs">eVisitor: {apt.evisitor_facility_code}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-amber-600">
+                      <span>⚠️</span>
+                      <span className="text-xs">eVisitor Facility kod nije postavljen</span>
+                    </div>
+                  )}
                   {apt.wifi_ssid && (
                     <div className="flex items-center gap-2 text-text-muted">
                       <span>📶</span>
@@ -153,9 +167,6 @@ export default function ApartmaniPage() {
                       <span>📋</span>
                       <span>{apt.rules}</span>
                     </div>
-                  )}
-                  {!apt.wifi_ssid && !apt.parking && !apt.rules && (
-                    <div className="text-text-muted text-xs">Nema dodatnih podataka</div>
                   )}
                 </div>
               </div>
@@ -192,6 +203,18 @@ export default function ApartmaniPage() {
               placeholder="Naziv apartmana *"
               className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
             />
+            <div>
+              <input
+                type="text"
+                value={editing.evisitor_facility_code || ''}
+                onChange={e => setEditing({ ...editing, evisitor_facility_code: e.target.value })}
+                placeholder="eVisitor Facility kod (npr. 0000022)"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none font-mono"
+              />
+              <p className="text-xs text-text-muted mt-1">
+                🏛️ Kod koji eVisitor koristi za ovaj objekt. Potreban za auto prijavu gostiju.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="text"

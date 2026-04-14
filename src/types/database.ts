@@ -77,6 +77,7 @@ export interface Database {
           parking: string | null
           rules: string | null
           checkin_instructions: string | null
+          evisitor_facility_code: string | null
           created_at: string
         }
         Insert: {
@@ -88,6 +89,7 @@ export interface Database {
           parking?: string | null
           rules?: string | null
           checkin_instructions?: string | null
+          evisitor_facility_code?: string | null
           created_at?: string
         }
         Update: {
@@ -99,6 +101,7 @@ export interface Database {
           parking?: string | null
           rules?: string | null
           checkin_instructions?: string | null
+          evisitor_facility_code?: string | null
           created_at?: string
         }
       }

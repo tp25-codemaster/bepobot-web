@@ -1,5 +1,12 @@
-import { useState } from 'react'
-import { checkInGuest, type GuestCheckInData, type CheckInResponse } from '../lib/evisitor'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  checkInGuest,
+  type GuestCheckInData,
+  type CheckInResponse,
+} from '../lib/evisitor'
+import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 
 // Pomoćne funkcije za formatiranje datuma
 function dateToEvisitor(isoDate: string): string {
@@ -28,26 +35,34 @@ const COUNTRIES = [
   { value: 'USA', label: '🇺🇸 SAD' },
 ]
 
+interface ApartmentOption {
+  id: string
+  name: string
+  evisitor_facility_code: string | null
+}
+
 interface FormState {
-  Facility: string
+  apartmentId: string // id iz apartments tablice (prazno = custom unos)
+  Facility: string // popunjeno iz apartmana ili ručno
   TouristName: string
   TouristSurname: string
   Gender: 'muški' | 'ženski'
-  DateOfBirth: string // ISO (yyyy-mm-dd)
+  DateOfBirth: string
   DocumentType: string
   DocumentNumber: string
   Citizenship: string
   CityOfResidence: string
   ResidenceAddress: string
-  StayFrom: string // ISO
-  TimeStayFrom: string // HH:mm
-  ForeseenStayUntil: string // ISO
-  TimeEstimatedStayUntil: string // HH:mm
+  StayFrom: string
+  TimeStayFrom: string
+  ForeseenStayUntil: string
+  TimeEstimatedStayUntil: string
   testMode: boolean
 }
 
 const INITIAL: FormState = {
-  Facility: '0000022',
+  apartmentId: '',
+  Facility: '',
   TouristName: '',
   TouristSurname: '',
   Gender: 'muški',
@@ -79,12 +94,47 @@ const TEST_DATA: Partial<FormState> = {
 }
 
 export default function EVisitorCheckIn() {
+  const { user, profile } = useAuth()
   const [form, setForm] = useState<FormState>(INITIAL)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<CheckInResponse | null>(null)
+  const [apartments, setApartments] = useState<ApartmentOption[]>([])
+  const [apartmentsLoading, setApartmentsLoading] = useState(true)
+
+  // Load user's apartments
+  useEffect(() => {
+    if (!user) {
+      setApartmentsLoading(false)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('apartments')
+        .select('id, name, evisitor_facility_code')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+      if (!cancelled) {
+        setApartments((data as ApartmentOption[]) || [])
+        setApartmentsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function handleApartmentChange(apartmentId: string) {
+    const apt = apartments.find((a) => a.id === apartmentId)
+    setForm((prev) => ({
+      ...prev,
+      apartmentId,
+      Facility: apt?.evisitor_facility_code || '',
+    }))
   }
 
   function fillTestData() {
@@ -93,11 +143,19 @@ export default function EVisitorCheckIn() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.Facility.trim()) {
+      setResult({
+        success: false,
+        error:
+          'Nije odabran apartman niti unesen Facility kod. Dodajte apartman s eVisitor kodom na /app/apartmani ili upišite kod ručno.',
+      })
+      return
+    }
     setLoading(true)
     setResult(null)
 
     const payload: GuestCheckInData = {
-      Facility: form.Facility,
+      Facility: form.Facility.trim(),
       TouristName: form.TouristName,
       TouristSurname: form.TouristSurname,
       Gender: form.Gender,
@@ -124,6 +182,14 @@ export default function EVisitorCheckIn() {
     setLoading(false)
   }
 
+  const evisitorConnected = profile?.evisitor_connected ?? false
+  const apartmentsWithCode = apartments.filter(
+    (a) => a.evisitor_facility_code && a.evisitor_facility_code.trim()
+  )
+  const apartmentsWithoutCode = apartments.filter(
+    (a) => !a.evisitor_facility_code || !a.evisitor_facility_code.trim()
+  )
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -134,18 +200,49 @@ export default function EVisitorCheckIn() {
               🏛️
             </div>
             <div>
-              <h1 className="text-white font-bold text-lg">eVisitor prijava gosta</h1>
-              <p className="text-primary-light text-xs">BepoBot → n8n → eVisitor API</p>
+              <h1 className="text-white font-bold text-lg">
+                eVisitor prijava gosta
+              </h1>
+              <p className="text-primary-light text-xs">
+                BepoBot → Vercel → eVisitor API
+              </p>
             </div>
           </div>
-          <a href="/app" className="text-white/80 text-sm hover:text-white">
+          <Link to="/app" className="text-white/80 text-sm hover:text-white">
             ← Natrag
-          </a>
+          </Link>
         </div>
       </div>
 
+      {/* Prerequisite warnings */}
+      {!evisitorConnected && (
+        <div className="max-w-2xl mx-auto px-4 pt-4">
+          <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-2xl">🔴</span>
+            <div className="flex-1">
+              <div className="font-semibold text-red-800 text-sm">
+                eVisitor nije povezan
+              </div>
+              <div className="text-xs text-red-700 mt-1">
+                Prije prijave gosta, povežite svoj eVisitor račun u{' '}
+                <Link
+                  to="/app/evisitor"
+                  className="font-semibold underline hover:text-red-900"
+                >
+                  postavkama
+                </Link>
+                .
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Form */}
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-2xl mx-auto px-4 py-6 space-y-6"
+      >
         {/* Test mode banner */}
         <div
           className={`rounded-xl p-4 border-2 ${
@@ -185,16 +282,70 @@ export default function EVisitorCheckIn() {
 
         {/* Apartman */}
         <Section title="🏠 Apartman">
-          <Field label="Facility (OIB objekta)">
-            <input
-              type="text"
-              required
-              value={form.Facility}
-              onChange={(e) => update('Facility', e.target.value)}
-              className={inputCls}
-              placeholder="0000022"
-            />
-          </Field>
+          {apartmentsLoading ? (
+            <div className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+          ) : apartments.length === 0 ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="text-sm font-semibold text-amber-900">
+                Nemate još apartmana
+              </div>
+              <div className="text-xs text-amber-800 mt-1">
+                Prije prijave gosta, dodajte barem jedan apartman s eVisitor
+                Facility kodom.
+              </div>
+              <Link
+                to="/app/apartmani"
+                className="inline-block mt-2 text-xs font-semibold text-amber-900 underline hover:text-amber-950"
+              >
+                → Dodaj apartman
+              </Link>
+            </div>
+          ) : (
+            <>
+              <Field label="Odaberi apartman *">
+                <select
+                  value={form.apartmentId}
+                  onChange={(e) => handleApartmentChange(e.target.value)}
+                  required
+                  className={inputCls}
+                >
+                  <option value="">— odaberi —</option>
+                  {apartmentsWithCode.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.evisitor_facility_code})
+                    </option>
+                  ))}
+                  {apartmentsWithoutCode.length > 0 && (
+                    <optgroup label="Bez Facility koda (ne mogu se koristiti)">
+                      {apartmentsWithoutCode.map((a) => (
+                        <option key={a.id} value={a.id} disabled>
+                          {a.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </Field>
+              {apartmentsWithoutCode.length > 0 && (
+                <p className="text-xs text-text-muted">
+                  {apartmentsWithoutCode.length} apartman
+                  {apartmentsWithoutCode.length === 1 ? '' : 'a'} nema Facility
+                  kod.{' '}
+                  <Link
+                    to="/app/apartmani"
+                    className="text-primary font-medium hover:underline"
+                  >
+                    Uredi
+                  </Link>
+                </p>
+              )}
+              {form.apartmentId && form.Facility && (
+                <div className="text-xs text-text-muted bg-gray-50 rounded px-3 py-2 font-mono">
+                  Facility: {form.Facility}
+                </div>
+              )}
+            </>
+          )}
         </Section>
 
         {/* Osobni podaci */}
@@ -223,7 +374,9 @@ export default function EVisitorCheckIn() {
             <Field label="Spol *">
               <select
                 value={form.Gender}
-                onChange={(e) => update('Gender', e.target.value as 'muški' | 'ženski')}
+                onChange={(e) =>
+                  update('Gender', e.target.value as 'muški' | 'ženski')
+                }
                 className={inputCls}
               >
                 <option value="muški">muški</option>
@@ -342,7 +495,9 @@ export default function EVisitorCheckIn() {
               <input
                 type="time"
                 value={form.TimeEstimatedStayUntil}
-                onChange={(e) => update('TimeEstimatedStayUntil', e.target.value)}
+                onChange={(e) =>
+                  update('TimeEstimatedStayUntil', e.target.value)
+                }
                 className={inputCls}
               />
             </Field>
@@ -352,8 +507,8 @@ export default function EVisitorCheckIn() {
         {/* Submit */}
         <button
           type="submit"
-          disabled={loading}
-          className="w-full py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 active:scale-98 disabled:opacity-50 transition-all"
+          disabled={loading || !evisitorConnected || apartments.length === 0}
+          className="w-full py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {loading ? '⏳ Šaljem na eVisitor...' : '🏛️ Prijavi gosta na eVisitor'}
         </button>
@@ -365,7 +520,13 @@ export default function EVisitorCheckIn() {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
   return (
     <div className="bg-white rounded-xl p-4 border border-border space-y-3">
       <h3 className="text-sm font-semibold text-text">{title}</h3>
@@ -374,7 +535,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
   return (
     <label className="block">
       <div className="text-xs font-medium text-text-muted mb-1">{label}</div>
@@ -434,9 +601,6 @@ function ResultCard({ result }: { result: CheckInResponse }) {
           <div className="font-bold text-red-800">Greška</div>
           <div className="text-sm text-red-700 mt-1 break-all">
             {result.error || result.message || 'Nepoznata greška'}
-          </div>
-          <div className="text-xs text-red-600 mt-2">
-            Provjeri da je n8n workflow aktivan i da su podaci ispravni.
           </div>
         </div>
       </div>
