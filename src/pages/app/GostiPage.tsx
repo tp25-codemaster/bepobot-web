@@ -80,6 +80,7 @@ export default function GostiPage() {
   const [selected, setSelected] = useState<GuestAggregate | null>(null)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<string | null>(null)
+  const [minStays, setMinStays] = useState(0)
 
   useEffect(() => {
     if (!user) return
@@ -164,18 +165,22 @@ export default function GostiPage() {
   }, [rows])
 
   const filtered = useMemo(() => {
+    let list = guests
+    if (minStays > 0) {
+      list = list.filter((g) => g.totalStays >= minStays)
+    }
     const q = search.trim().toLowerCase()
-    if (!q) return guests
-    return guests.filter((g) => {
-      return (
+    if (q) {
+      list = list.filter((g) =>
         `${g.name} ${g.surname}`.toLowerCase().includes(q) ||
         (g.email || '').toLowerCase().includes(q) ||
         (g.phone || '').toLowerCase().includes(q) ||
         (g.city || '').toLowerCase().includes(q) ||
         (g.citizenship || '').toLowerCase().includes(q)
       )
-    })
-  }, [guests, search])
+    }
+    return list
+  }, [guests, search, minStays])
 
   async function handleImport() {
     if (!session?.access_token) return
@@ -250,6 +255,28 @@ export default function GostiPage() {
             label="Ukupno noći"
             value={guests.reduce((sum, g) => sum + g.totalNights, 0)}
           />
+        </div>
+
+        {/* Stays filter */}
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+          {[
+            { label: 'Svi', value: 0 },
+            { label: '2+ boravka', value: 2 },
+            { label: '3+ boravka', value: 3 },
+            { label: '5+ boravaka', value: 5 },
+          ].map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setMinStays(f.value)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                minStays === f.value
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 text-text-muted hover:bg-gray-200'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
 
         {/* Search */}
