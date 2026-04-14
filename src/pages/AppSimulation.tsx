@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type TouchEvent } from 'react'
 import ChatBubble from '../components/chat/ChatBubble'
 import ChatCard from '../components/chat/ChatCard'
 import QuickActions from '../components/chat/QuickActions'
@@ -23,7 +23,7 @@ export default function AppSimulation() {
   const {
     messages, setMessages,
     sending, sendMessage,
-    addBotMessage, addUserMessage, clearMessages,
+    addBotMessage, addUserMessage, clearMessages, reloadMessages,
     isDemo, historyLoaded,
   } = useChat()
 
@@ -32,7 +32,10 @@ export default function AppSimulation() {
   const [activeScenario, setActiveScenario] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [pullDistance, setPullDistance] = useState(0)
   const chatRef = useRef<HTMLDivElement>(null)
+  const touchStartY = useRef(0)
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const hasStartedOnboarding = useRef(false)
 
@@ -242,7 +245,39 @@ export default function AppSimulation() {
       </div>
 
       {/* Chat area */}
-      <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div
+        ref={chatRef}
+        className="flex-1 overflow-y-auto p-4 space-y-3 relative"
+        onTouchStart={(e: TouchEvent) => {
+          touchStartY.current = e.touches[0].clientY
+        }}
+        onTouchMove={(e: TouchEvent) => {
+          if (!chatRef.current || chatRef.current.scrollTop > 0) return
+          const dy = e.touches[0].clientY - touchStartY.current
+          if (dy > 0 && dy < 120) setPullDistance(dy)
+        }}
+        onTouchEnd={() => {
+          if (pullDistance > 60 && !refreshing) {
+            setRefreshing(true)
+            setPullDistance(60)
+            reloadMessages().finally(() => {
+              setRefreshing(false)
+              setPullDistance(0)
+            })
+          } else {
+            setPullDistance(0)
+          }
+        }}
+      >
+        {/* Pull to refresh indicator */}
+        {pullDistance > 0 && (
+          <div
+            className="absolute top-0 left-0 right-0 flex justify-center transition-transform"
+            style={{ transform: `translateY(${Math.min(pullDistance, 60) - 40}px)` }}
+          >
+            <div className={`w-6 h-6 border-2 border-primary border-t-transparent rounded-full ${refreshing ? 'animate-spin' : ''}`} />
+          </div>
+        )}
         {messages.map((msg, i) => {
           if (msg.type === 'user') {
             return (

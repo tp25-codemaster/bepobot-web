@@ -135,6 +135,15 @@ export function useChat() {
     setMessages((prev) => [...prev, { type: 'user', content }])
   }, [])
 
+  // Reload messages from Supabase
+  const reloadMessages = useCallback(async () => {
+    if (isDemoMode || !user) return
+    const history = await loadMessages(user.id)
+    if (history.length > 0) {
+      setMessages(history.map(chatToDisplay))
+    }
+  }, [user])
+
   // Clear messages
   const clearMessages = useCallback(() => {
     setMessages([])
@@ -150,6 +159,7 @@ export function useChat() {
     addBotMessage,
     addUserMessage,
     clearMessages,
+    reloadMessages,
     isDemo: isDemoMode,
   }
 }
