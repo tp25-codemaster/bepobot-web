@@ -1,81 +1,244 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
+import { useAuth } from '../../contexts/AuthContext'
+import { supabase, isDemoMode } from '../../lib/supabase'
 
 interface Apartment {
   id: string
   name: string
-  wifi_ssid: string
-  wifi_password: string
-  parking: string
+  wifi_ssid: string | null
+  wifi_password: string | null
+  parking: string | null
+  rules: string | null
+  checkin_instructions: string | null
 }
 
-// Demo data
 const DEMO_APARTMENTS: Apartment[] = [
-  { id: '1', name: 'Apartman 1 - Centar', wifi_ssid: 'ApartmanNet', wifi_password: 'pass1234', parking: 'Ispred kuce, mjesto 3' },
-  { id: '2', name: 'Apartman 2 - More', wifi_ssid: 'SeaView_WiFi', wifi_password: 'more2024', parking: 'Garaza, -1 kat' },
+  { id: '1', name: 'Apartman 1 - Centar', wifi_ssid: 'ApartmanNet', wifi_password: 'pass1234', parking: 'Ispred kuce, mjesto 3', rules: null, checkin_instructions: null },
+  { id: '2', name: 'Apartman 2 - More', wifi_ssid: 'SeaView_WiFi', wifi_password: 'more2024', parking: 'Garaza, -1 kat', rules: null, checkin_instructions: null },
 ]
 
+const EMPTY: Apartment = { id: '', name: '', wifi_ssid: '', wifi_password: '', parking: '', rules: '', checkin_instructions: '' }
+
 export default function ApartmaniPage() {
-  const [apartments] = useState<Apartment[]>(DEMO_APARTMENTS)
-  const [showForm, setShowForm] = useState(false)
+  const { user } = useAuth()
+  const [apartments, setApartments] = useState<Apartment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<Apartment | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  // Load apartments
+  useEffect(() => {
+    if (isDemoMode) {
+      setApartments(DEMO_APARTMENTS)
+      setLoading(false)
+      return
+    }
+    if (!user) return
+    loadApartments()
+  }, [user])
+
+  async function loadApartments() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('apartments')
+      .select('*')
+      .eq('user_id', user!.id)
+      .order('created_at', { ascending: true })
+    setApartments((data as Apartment[]) || [])
+    setLoading(false)
+  }
+
+  async function handleSave() {
+    if (!editing || !editing.name.trim()) return
+    setSaving(true)
+
+    if (isDemoMode) {
+      if (editing.id) {
+        setApartments(prev => prev.map(a => a.id === editing.id ? editing : a))
+      } else {
+        setApartments(prev => [...prev, { ...editing, id: Date.now().toString() }])
+      }
+      setEditing(null)
+      setSaving(false)
+      return
+    }
+
+    if (editing.id) {
+      // Update
+      await supabase
+        .from('apartments')
+        .update({
+          name: editing.name,
+          wifi_ssid: editing.wifi_ssid || null,
+          wifi_password: editing.wifi_password || null,
+          parking: editing.parking || null,
+          rules: editing.rules || null,
+          checkin_instructions: editing.checkin_instructions || null,
+        })
+        .eq('id', editing.id)
+    } else {
+      // Insert
+      await supabase
+        .from('apartments')
+        .insert({
+          user_id: user!.id,
+          name: editing.name,
+          wifi_ssid: editing.wifi_ssid || null,
+          wifi_password: editing.wifi_password || null,
+          parking: editing.parking || null,
+          rules: editing.rules || null,
+          checkin_instructions: editing.checkin_instructions || null,
+        })
+    }
+
+    await loadApartments()
+    setEditing(null)
+    setSaving(false)
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Obrisati apartman?')) return
+
+    if (isDemoMode) {
+      setApartments(prev => prev.filter(a => a.id !== id))
+      return
+    }
+
+    await supabase.from('apartments').delete().eq('id', id)
+    await loadApartments()
+  }
 
   return (
     <AppShell title="Moji apartmani">
       <div className="p-4 space-y-3">
-        {apartments.map(apt => (
-          <div key={apt.id} className="bg-white rounded-xl border border-border p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-text">{apt.name}</h3>
-              <button className="text-xs text-primary font-medium">Uredi</button>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-text-muted">
-                <span>📶</span>
-                <span>{apt.wifi_ssid} / {apt.wifi_password}</span>
+        {loading ? (
+          <div className="text-center text-text-muted py-8">Ucitavanje...</div>
+        ) : (
+          <>
+            {apartments.map(apt => (
+              <div key={apt.id} className="bg-white rounded-xl border border-border p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-text">{apt.name}</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditing({ ...apt })}
+                      className="text-xs text-primary font-medium"
+                    >
+                      Uredi
+                    </button>
+                    <button
+                      onClick={() => handleDelete(apt.id)}
+                      className="text-xs text-red-500 font-medium"
+                    >
+                      Obrisi
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-2 text-sm">
+                  {apt.wifi_ssid && (
+                    <div className="flex items-center gap-2 text-text-muted">
+                      <span>📶</span>
+                      <span>{apt.wifi_ssid} / {apt.wifi_password}</span>
+                    </div>
+                  )}
+                  {apt.parking && (
+                    <div className="flex items-center gap-2 text-text-muted">
+                      <span>🅿️</span>
+                      <span>{apt.parking}</span>
+                    </div>
+                  )}
+                  {apt.rules && (
+                    <div className="flex items-center gap-2 text-text-muted">
+                      <span>📋</span>
+                      <span>{apt.rules}</span>
+                    </div>
+                  )}
+                  {!apt.wifi_ssid && !apt.parking && !apt.rules && (
+                    <div className="text-text-muted text-xs">Nema dodatnih podataka</div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-text-muted">
-                <span>🅿️</span>
-                <span>{apt.parking}</span>
+            ))}
+
+            {apartments.length === 0 && !editing && (
+              <div className="text-center py-8">
+                <div className="text-3xl mb-2">🏠</div>
+                <div className="text-text-muted text-sm">Nemate jos apartmana. Dodajte prvi!</div>
               </div>
+            )}
+
+            {!editing && (
+              <button
+                onClick={() => setEditing({ ...EMPTY })}
+                className="w-full py-3 border-2 border-dashed border-border rounded-xl text-text-muted text-sm font-medium hover:border-primary hover:text-primary transition-colors"
+              >
+                + Dodaj apartman
+              </button>
+            )}
+          </>
+        )}
+
+        {/* Edit/Add form */}
+        {editing && (
+          <div className="bg-white rounded-xl border-2 border-primary/30 p-4 space-y-3">
+            <h3 className="font-semibold text-text text-sm">
+              {editing.id ? 'Uredi apartman' : 'Novi apartman'}
+            </h3>
+            <input
+              type="text"
+              value={editing.name}
+              onChange={e => setEditing({ ...editing, name: e.target.value })}
+              placeholder="Naziv apartmana *"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={editing.wifi_ssid || ''}
+                onChange={e => setEditing({ ...editing, wifi_ssid: e.target.value })}
+                placeholder="WiFi naziv"
+                className="px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+              />
+              <input
+                type="text"
+                value={editing.wifi_password || ''}
+                onChange={e => setEditing({ ...editing, wifi_password: e.target.value })}
+                placeholder="WiFi lozinka"
+                className="px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+              />
             </div>
-          </div>
-        ))}
-
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="w-full py-3 border-2 border-dashed border-border rounded-xl text-text-muted text-sm font-medium hover:border-primary hover:text-primary transition-colors"
-        >
-          + Dodaj apartman
-        </button>
-
-        {showForm && (
-          <div className="bg-white rounded-xl border border-border p-4 space-y-3">
             <input
               type="text"
-              placeholder="Naziv apartmana"
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-            />
-            <input
-              type="text"
-              placeholder="WiFi naziv"
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-            />
-            <input
-              type="text"
-              placeholder="WiFi lozinka"
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-            />
-            <input
-              type="text"
+              value={editing.parking || ''}
+              onChange={e => setEditing({ ...editing, parking: e.target.value })}
               placeholder="Parking upute"
               className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
             />
+            <textarea
+              value={editing.rules || ''}
+              onChange={e => setEditing({ ...editing, rules: e.target.value })}
+              placeholder="Pravila kuce (opcionalno)"
+              rows={2}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
+            />
+            <textarea
+              value={editing.checkin_instructions || ''}
+              onChange={e => setEditing({ ...editing, checkin_instructions: e.target.value })}
+              placeholder="Check-in upute (opcionalno)"
+              rows={2}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
+            />
             <div className="flex gap-2">
-              <button className="flex-1 py-2 bg-primary text-white text-sm font-semibold rounded-lg">
-                Spremi
+              <button
+                onClick={handleSave}
+                disabled={saving || !editing.name.trim()}
+                className="flex-1 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              >
+                {saving ? 'Spremam...' : 'Spremi'}
               </button>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => setEditing(null)}
                 className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg"
               >
                 Odustani
