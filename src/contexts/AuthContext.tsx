@@ -10,6 +10,10 @@ interface Profile {
   evisitor_password: string | null
   evisitor_connected: boolean
   evisitor_auto_checkin: boolean
+  gmail_access_token: string | null
+  gmail_refresh_token: string | null
+  gmail_connected: boolean
+  gmail_email: string | null
   telegram_user_id: number | null
   telegram_pairing_code: string | null
   telegram_pairing_expires_at: string | null

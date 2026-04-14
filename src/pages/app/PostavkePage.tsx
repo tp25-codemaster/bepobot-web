@@ -1,15 +1,52 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { supabase } from '../../lib/supabase'
 import AppShell from '../../components/app/AppShell'
 
 export default function PostavkePage() {
-  const { user, profile, signOut, isDemo } = useAuth()
+  const { user, profile, signOut, isDemo, session, updateProfile } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [gmailStatus, setGmailStatus] = useState<string | null>(null)
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  useEffect(() => {
+    const gmail = searchParams.get('gmail')
+    if (gmail === 'connected') {
+      setGmailStatus('connected')
+      // Refresh profile to get updated gmail_connected
+      if (user) {
+        supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
+          if (data) updateProfile(data)
+        })
+      }
+    } else if (gmail === 'error') {
+      setGmailStatus('error')
+    }
+  }, [searchParams])
 
   async function handleLogout() {
     await signOut()
     navigate('/app/login')
+  }
+
+  function handleConnectGmail() {
+    if (!session?.access_token) return
+    window.location.href = `/api/gmail-connect?token=${session.access_token}`
+  }
+
+  async function handleDisconnectGmail() {
+    if (!session?.access_token) return
+    setDisconnecting(true)
+    try {
+      await fetch('/api/gmail-disconnect', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      updateProfile({ gmail_connected: false, gmail_email: null } as any)
+    } catch {}
+    setDisconnecting(false)
   }
 
   return (
@@ -38,6 +75,47 @@ export default function PostavkePage() {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* Gmail */}
+        <div className="bg-white rounded-xl border border-border p-4">
+          <h3 className="font-semibold text-text mb-3">Gmail</h3>
+          <p className="text-xs text-text-muted mb-3">
+            Poveži Gmail da BepoBot automatski prati nove rezervacije iz Booking.com, Airbnb i direktnih emailova.
+          </p>
+          {gmailStatus === 'connected' && (
+            <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+              Gmail uspjesno povezan!
+            </div>
+          )}
+          {gmailStatus === 'error' && (
+            <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              Greska pri povezivanju Gmaila. Pokusajte ponovo.
+            </div>
+          )}
+          {profile?.gmail_connected ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                <span className="text-sm text-text font-medium">{profile.gmail_email || 'Povezan'}</span>
+              </div>
+              <button
+                onClick={handleDisconnectGmail}
+                disabled={disconnecting}
+                className="w-full py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {disconnecting ? 'Odspajam...' : 'Odspoji Gmail'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleConnectGmail}
+              disabled={isDemo}
+              className="w-full py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              Povezi Gmail
+            </button>
+          )}
         </div>
 
         {/* Notifications */}
