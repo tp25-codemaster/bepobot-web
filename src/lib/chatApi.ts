@@ -36,8 +36,11 @@ export async function loadMessages(userId: string, limit = 50): Promise<ChatMess
     .from('messages')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(limit)
+
+  // Reverse to get chronological order (oldest first)
+  if (data) data.reverse()
 
   if (error) {
     console.error('Failed to load messages:', error)
