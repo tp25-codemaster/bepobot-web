@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
+import * as Sentry from '@sentry/react'
 import { supabase, isDemoMode } from '../lib/supabase'
 interface Profile {
   id: string
@@ -49,15 +50,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+        Sentry.setUser({ id: session.user.id })
+      }
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else setProfile(null)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+        Sentry.setUser({ id: session.user.id })
+      } else {
+        setProfile(null)
+        Sentry.setUser(null)
+      }
     })
 
     return () => subscription.unsubscribe()

@@ -1,8 +1,26 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import * as Sentry from '@sentry/react'
 import './index.css'
 import { AuthProvider } from './contexts/AuthContext'
+
+// Sentry initialization — no-op if VITE_SENTRY_DSN not set
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: import.meta.env.MODE,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false }),
+    ],
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0.0,
+    replaysOnErrorSampleRate: 1.0,
+    sendDefaultPii: false,
+  })
+}
 import ProtectedRoute from './components/ProtectedRoute'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
@@ -18,8 +36,29 @@ import PostavkePage from './pages/app/PostavkePage'
 import RezervacijePage from './pages/app/RezervacijePage'
 import DashboardPage from './pages/app/DashboardPage'
 
+function FallbackUI() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+      <div className="max-w-md text-center">
+        <div className="text-5xl mb-4">⚠️</div>
+        <h1 className="text-xl font-bold text-text mb-2">Nesto je poslo krivo</h1>
+        <p className="text-sm text-text-muted mb-4">
+          Dogodila se neocekivana greska. Pokusajte osvjeziti stranicu.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-primary text-white font-semibold rounded-lg"
+        >
+          Osvjezi
+        </button>
+      </div>
+    </div>
+  )
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <Sentry.ErrorBoundary fallback={<FallbackUI />}>
     <BrowserRouter>
       <AuthProvider>
         <Routes>
@@ -64,5 +103,6 @@ createRoot(document.getElementById('root')!).render(
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </Sentry.ErrorBoundary>
   </StrictMode>,
 )
