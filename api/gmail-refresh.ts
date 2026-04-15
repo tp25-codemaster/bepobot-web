@@ -18,8 +18,8 @@ interface VercelResponse {
 }
 
 const GOOGLE_CLIENT_ID = '590860880888-aq0jlqq7en5klatohs37ec7acuj0t2se.apps.googleusercontent.com'
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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'
-const API_SECRET = process.env.EMAIL_API_SECRET || ''
+const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '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').trim()
+const API_SECRET = (process.env.EMAIL_API_SECRET || '').trim()
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*')
