@@ -5,11 +5,18 @@
 // tool, izvrsimo ga server-side (user-scoped supabase, RLS enforced) i napravimo
 // drugi LLM call da dobijemo natural-language rezultat za korisnika.
 
-import { getUserSupabase, getCurrentUser } from '../server/supabase.js'
+import {
+  getUserSupabase,
+  getCurrentUser,
+  getSupabaseAdmin,
+} from '../server/supabase.js'
 import {
   fetchReservationsForContext,
+  fetchPendingReservationsForContext,
   buildSystemPrompt,
   executeCheckInReservation,
+  executeConfirmPendingReservation,
+  executeRejectPendingReservation,
   BOT_TOOLS,
 } from '../server/bot-tools.js'
 import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
@@ -140,12 +147,18 @@ export default async function handler(
   }
 
   try {
-    // 1. Fetch reservations for context (user-scoped, RLS)
-    const reservations = await fetchReservationsForContext(supabase, user.id)
+    // 1. Fetch reservations (user-scoped, RLS) + pending (admin, RLS-bypass)
+    // pending_reservations nema user RLS policy pa koristimo admin klijent.
+    // Sigurno je jer filtriramo po user.id i server verificira vlasnistvo.
+    const adminSupabase = getSupabaseAdmin()
+    const [reservations, pending] = await Promise.all([
+      fetchReservationsForContext(supabase, user.id),
+      fetchPendingReservationsForContext(adminSupabase, user.id),
+    ])
 
     // 2. Build system prompt
     const fullName = (user.user_metadata?.full_name as string) || null
-    const systemPrompt = buildSystemPrompt(reservations, fullName)
+    const systemPrompt = buildSystemPrompt(reservations, fullName, pending)
 
     // 3. First LLM call with tools
     const baseMessages: OpenRouterMessage[] = [
@@ -192,17 +205,19 @@ export default async function handler(
       result: unknown
     }> = []
     for (const call of toolCalls) {
+      let args: Record<string, unknown> = {}
+      try {
+        args =
+          typeof call.function.arguments === 'string'
+            ? JSON.parse(call.function.arguments)
+            : (call.function.arguments as Record<string, unknown>)
+      } catch {
+        /* ignore */
+      }
+
       if (call.function.name === 'check_in_reservation') {
-        let args: { reservation_id?: string; test_mode?: boolean } = {}
-        try {
-          args =
-            typeof call.function.arguments === 'string'
-              ? JSON.parse(call.function.arguments)
-              : call.function.arguments
-        } catch {
-          /* ignore */
-        }
-        if (!args.reservation_id) {
+        const reservationId = args.reservation_id as string | undefined
+        if (!reservationId) {
           toolResults.push({
             tool_call_id: call.id,
             name: call.function.name,
@@ -213,8 +228,48 @@ export default async function handler(
         const result = await executeCheckInReservation(
           supabase,
           user.id,
-          args.reservation_id,
+          reservationId,
           args.test_mode === true
+        )
+        toolResults.push({
+          tool_call_id: call.id,
+          name: call.function.name,
+          result,
+        })
+      } else if (call.function.name === 'confirm_pending_reservation') {
+        const pendingId = args.pending_id as string | undefined
+        if (!pendingId) {
+          toolResults.push({
+            tool_call_id: call.id,
+            name: call.function.name,
+            result: { success: false, error: 'pending_id missing' },
+          })
+          continue
+        }
+        const result = await executeConfirmPendingReservation(
+          adminSupabase,
+          user.id,
+          pendingId
+        )
+        toolResults.push({
+          tool_call_id: call.id,
+          name: call.function.name,
+          result,
+        })
+      } else if (call.function.name === 'reject_pending_reservation') {
+        const pendingId = args.pending_id as string | undefined
+        if (!pendingId) {
+          toolResults.push({
+            tool_call_id: call.id,
+            name: call.function.name,
+            result: { success: false, error: 'pending_id missing' },
+          })
+          continue
+        }
+        const result = await executeRejectPendingReservation(
+          adminSupabase,
+          user.id,
+          pendingId
         )
         toolResults.push({
           tool_call_id: call.id,

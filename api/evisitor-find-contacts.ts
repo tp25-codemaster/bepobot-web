@@ -92,7 +92,7 @@ async function findContactForGuest(
       }
 
       const phones = bodyText.match(PHONE_RE) || []
-      if (phones.length > 0) foundPhone = phones[0].replace(/[\s.-]/g, '')
+      if (phones[0]) foundPhone = phones[0].replace(/[\s.-]/g, '')
     }
   }
 

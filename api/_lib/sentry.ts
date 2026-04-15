@@ -69,7 +69,7 @@ export function withSentry(handler: Handler): Handler {
       // Flush so event is sent before function returns
       await Sentry.flush(2000).catch(() => {})
 
-      if (!res.headersSent) {
+      if (!(res as unknown as { headersSent?: boolean }).headersSent) {
         try {
           res.status(500).json({
             success: false,

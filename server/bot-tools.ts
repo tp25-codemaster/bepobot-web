@@ -245,6 +245,162 @@ export async function executeCheckInReservation(
   return result
 }
 
+export interface PendingReservationContext {
+  id: string
+  guest_name: string | null
+  guest_contact: string | null
+  guests_count: number
+  check_in: string | null
+  check_out: string | null
+  apartment_id: string | null
+  apartment_name: string | null
+  platform: string | null
+  confirmation_number: string | null
+  notes: string | null
+}
+
+/** Dohvati pending rezervacije (cekaju potvrdu vlasnika) za injection u prompt. */
+export async function fetchPendingReservationsForContext(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<PendingReservationContext[]> {
+  const { data } = await supabase
+    .from('pending_reservations')
+    .select(
+      'id, guest_name, guest_contact, guests_count, check_in, check_out, apartment_id, apartment_name_raw, platform, confirmation_number, notes'
+    )
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  return (data || []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    guest_name: (r.guest_name as string) || null,
+    guest_contact: (r.guest_contact as string) || null,
+    guests_count: (r.guests_count as number) || 1,
+    check_in: (r.check_in as string) || null,
+    check_out: (r.check_out as string) || null,
+    apartment_id: (r.apartment_id as string) || null,
+    apartment_name: (r.apartment_name_raw as string) || null,
+    platform: (r.platform as string) || null,
+    confirmation_number: (r.confirmation_number as string) || null,
+    notes: (r.notes as string) || null,
+  }))
+}
+
+export function formatPendingForPrompt(
+  pending: PendingReservationContext[]
+): string {
+  if (pending.length === 0) return '(nema novih rezervacija na cekanju)'
+  return pending
+    .map(
+      (p) =>
+        `- id: ${p.id} | ${p.guest_name || '(bez imena)'} | ${p.apartment_name || '(bez apartmana)'} | ${p.check_in} → ${p.check_out} | ${p.guests_count} gostiju | platforma: ${p.platform || '?'}${p.confirmation_number ? ' | kod: ' + p.confirmation_number : ''}`
+    )
+    .join('\n')
+}
+
+/** Potvrdi pending rezervaciju — prebaci u reservations tablicu, oznaci pending kao confirmed. */
+export async function executeConfirmPendingReservation(
+  supabase: SupabaseClient,
+  userId: string,
+  pendingId: string
+): Promise<{ success: boolean; reservation_id?: string; error?: string }> {
+  const { data: pending, error: fetchErr } = await supabase
+    .from('pending_reservations')
+    .select('*')
+    .eq('id', pendingId)
+    .single()
+
+  if (fetchErr || !pending) {
+    return { success: false, error: 'Pending rezervacija ne postoji' }
+  }
+  if (pending.user_id !== userId) {
+    return { success: false, error: 'Rezervacija ne pripada korisniku' }
+  }
+  if (pending.status !== 'pending') {
+    return {
+      success: false,
+      error: `Rezervacija je vec obradjena (status: ${pending.status})`,
+    }
+  }
+
+  const noteParts: string[] = []
+  if (pending.platform) noteParts.push(`Platforma: ${pending.platform}`)
+  if (pending.confirmation_number)
+    noteParts.push(`Kod: ${pending.confirmation_number}`)
+  if (pending.notes) noteParts.push(pending.notes)
+
+  const insertPayload = {
+    user_id: userId,
+    apartment_id: pending.apartment_id,
+    guest_name: pending.guest_name,
+    guest_contact: pending.guest_contact,
+    guests_count: pending.guests_count || 1,
+    check_in: pending.check_in,
+    check_out: pending.check_out,
+    status: 'confirmed',
+    notes: noteParts.join(' | ') || null,
+  }
+
+  const { data: inserted, error: insertErr } = await supabase
+    .from('reservations')
+    .insert(insertPayload)
+    .select('id')
+    .single()
+
+  if (insertErr || !inserted) {
+    return {
+      success: false,
+      error: 'Ne mogu spremiti rezervaciju: ' + (insertErr?.message || 'unknown'),
+    }
+  }
+
+  await supabase
+    .from('pending_reservations')
+    .update({ status: 'confirmed' })
+    .eq('id', pendingId)
+
+  return { success: true, reservation_id: inserted.id as string }
+}
+
+/** Odbij pending rezervaciju — oznaci kao rejected. */
+export async function executeRejectPendingReservation(
+  supabase: SupabaseClient,
+  userId: string,
+  pendingId: string
+): Promise<{ success: boolean; error?: string }> {
+  const { data: pending, error: fetchErr } = await supabase
+    .from('pending_reservations')
+    .select('id, user_id, status')
+    .eq('id', pendingId)
+    .single()
+
+  if (fetchErr || !pending) {
+    return { success: false, error: 'Pending rezervacija ne postoji' }
+  }
+  if (pending.user_id !== userId) {
+    return { success: false, error: 'Rezervacija ne pripada korisniku' }
+  }
+  if (pending.status !== 'pending') {
+    return {
+      success: false,
+      error: `Rezervacija je vec obradjena (status: ${pending.status})`,
+    }
+  }
+
+  const { error: updateErr } = await supabase
+    .from('pending_reservations')
+    .update({ status: 'rejected' })
+    .eq('id', pendingId)
+
+  if (updateErr) {
+    return { success: false, error: 'Ne mogu odbiti: ' + updateErr.message }
+  }
+  return { success: true }
+}
+
 /** Tool definicije za Claude (OpenAI-compatible format). */
 export const BOT_TOOLS = [
   {
@@ -271,14 +427,53 @@ export const BOT_TOOLS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'confirm_pending_reservation',
+      description:
+        'Potvrdi novu pending rezervaciju koja je detektirana iz emaila i prebaci ju u aktivne rezervacije. Koristi kad korisnik kaze "potvrdi", "da", "ok", "dodaj" za neku pending rezervaciju.',
+      parameters: {
+        type: 'object',
+        properties: {
+          pending_id: {
+            type: 'string',
+            description:
+              'UUID iz liste PENDING REZERVACIJE u sistem promptu',
+          },
+        },
+        required: ['pending_id'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'reject_pending_reservation',
+      description:
+        'Odbij pending rezervaciju (npr. ako je duplikat ili kriva). Koristi kad korisnik kaze "odbij", "ne", "obrisi" za neku pending rezervaciju.',
+      parameters: {
+        type: 'object',
+        properties: {
+          pending_id: {
+            type: 'string',
+            description: 'UUID iz liste PENDING REZERVACIJE u sistem promptu',
+          },
+        },
+        required: ['pending_id'],
+      },
+    },
+  },
 ]
 
 /** Zajednički system prompt s ubacenom listom rezervacija. */
 export function buildSystemPrompt(
   reservations: ReservationContext[],
-  userName: string | null
+  userName: string | null,
+  pending: PendingReservationContext[] = []
 ): string {
   const resList = formatReservationsForPrompt(reservations)
+  const pendingList = formatPendingForPrompt(pending)
   return `Ti si BepoBot — AI asistent koji pomaze vlasniku apartmana u Hrvatskoj upravljati rezervacijama i prijavama gostiju na eVisitor sustav.
 
 Prica na hrvatskom, kratko i direktno. Koristi emojije umjereno.
@@ -288,8 +483,11 @@ Korisnik: ${userName || 'Korisnik'}
 TRENUTNE REZERVACIJE:
 ${resList}
 
+PENDING REZERVACIJE (cekaju potvrdu vlasnika):
+${pendingList}
+
 Kad korisnik trazi da prijavis gosta na eVisitor:
-1. Identificiraj tocnu rezervaciju iz gornje liste po imenu gosta ili apartmanu.
+1. Identificiraj tocnu rezervaciju iz TRENUTNE REZERVACIJE liste po imenu gosta ili apartmanu.
 2. Ako postoji vise podudaranja, pitaj koja tocno.
 3. Rezervacija mora imati status GOST POPUNIO da se moze prijaviti (ne CEKA GOSTA niti VEC PRIJAVLJEN).
 4. Zovi tool check_in_reservation s ispravnim reservation_id.
@@ -297,6 +495,16 @@ Kad korisnik trazi da prijavis gosta na eVisitor:
 6. Stvarnu prijavu (test_mode=false) radi SAMO ako korisnik izricito napise: "stvarno", "produkcija", "pravi", "stvarnu".
 7. Nakon tool poziva, saopci rezultat kratkim tekstom.
 
-Ako korisnik pita o rezervacijama, odgovori na temelju gornje liste. Ne izmisljaj podatke.
+Kad korisnik kaze "potvrdi", "da", "ok", "dodaj" ili slicno za neku PENDING rezervaciju:
+1. Identificiraj tocan pending_id iz PENDING REZERVACIJE liste po imenu gosta ili apartmanu.
+2. Ako je samo jedan pending, koristi taj.
+3. OBAVEZNO zovi tool confirm_pending_reservation s pending_id — NE SMIJES samo reci "dodajem" bez poziva toola.
+4. Nakon tool poziva saopci rezultat korisniku na temelju toga sto je tool vratio.
+5. Ako PENDING REZERVACIJE lista je prazna, reci korisniku da nema nijedne pending rezervacije — nemoj izmisljati.
+
+Kad korisnik kaze "odbij", "ne", "obrisi" za neku PENDING rezervaciju:
+1. Zovi tool reject_pending_reservation s pending_id.
+
+Ako korisnik pita o rezervacijama, odgovori na temelju gornjih lista. Ne izmisljaj podatke.
 Za sve ostalo (chit-chat, pitanja o BepoBot-u), odgovori normalno bez pozivanja toola.`
 }
