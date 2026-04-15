@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
+import EmptyState from '../../components/app/EmptyState'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
 import {
@@ -203,12 +204,13 @@ export default function RezervacijePage() {
             ))}
 
             {filtered.length === 0 && !editing && (
-              <div className="text-center py-8">
-                <div className="text-3xl mb-2">📅</div>
-                <div className="text-text-muted text-sm">
-                  {filter === 'upcoming' ? 'Nema nadolazecih rezervacija.' : 'Nema rezervacija.'}
-                </div>
-              </div>
+              <EmptyState
+                icon="📅"
+                title={filter === 'upcoming' ? 'Nema nadolazecih rezervacija' : filter === 'past' ? 'Nema proslih rezervacija' : 'Jos nemate rezervacija'}
+                description={apartments.length === 0
+                  ? 'Prvo dodajte apartman u bocnom meniju, pa se vratite ovdje.'
+                  : 'Dodajte rucno ili pustite BepoBota da automatski hvata booking emailove iz Gmaila.'}
+              />
             )}
 
             {!editing && (

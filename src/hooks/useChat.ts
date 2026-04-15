@@ -52,6 +52,8 @@ export function useChat() {
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [historyLoaded, setHistoryLoaded] = useState(false)
+  const [lastError, setLastError] = useState<string | null>(null)
+  const lastFailedMessage = useRef<string | null>(null)
   const hasLoaded = useRef(false)
 
   // Load history from Supabase on mount
@@ -99,6 +101,15 @@ export function useChat() {
         }))
       const response = await sendToWebhook(userId, text, history)
       setSending(false)
+
+      // Track error state for retry UI
+      if (response.error) {
+        setLastError(response.content || 'Greska pri slanju poruke.')
+        lastFailedMessage.current = text
+      } else {
+        setLastError(null)
+        lastFailedMessage.current = null
+      }
 
       // Parse response into display messages
       const botMessages: DisplayMessage[] = []
@@ -154,6 +165,28 @@ export function useChat() {
     }
   }, [user])
 
+  // Retry the last failed message
+  const retryLastMessage = useCallback(() => {
+    if (lastFailedMessage.current) {
+      const text = lastFailedMessage.current
+      lastFailedMessage.current = null
+      setLastError(null)
+      // Remove the last error bot message from UI
+      setMessages((prev) => {
+        const lastBot = prev.findLastIndex((m) => m.type === 'bot-text')
+        if (lastBot >= 0) return prev.slice(0, lastBot)
+        return prev
+      })
+      sendMessage(text)
+    }
+  }, [sendMessage])
+
+  // Dismiss error banner
+  const dismissError = useCallback(() => {
+    setLastError(null)
+    lastFailedMessage.current = null
+  }, [])
+
   // Clear messages
   const clearMessages = useCallback(() => {
     setMessages([])
@@ -165,7 +198,10 @@ export function useChat() {
     loading,
     sending,
     historyLoaded,
+    lastError,
     sendMessage,
+    retryLastMessage,
+    dismissError,
     addBotMessage,
     addUserMessage,
     clearMessages,

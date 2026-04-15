@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
+import EmptyState from '../../components/app/EmptyState'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 
@@ -376,14 +377,21 @@ export default function GostiPage() {
             <div className="h-20 bg-gray-100 rounded-xl animate-pulse" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-2">🧳</div>
-            <div className="text-text-muted text-sm">
-              {search
-                ? 'Nema gostiju koji odgovaraju pretrazi.'
-                : 'Još nemate gostiju u bazi. Čim prvi gost popuni self check-in formu, pojavit će se ovdje.'}
-            </div>
-          </div>
+          search ? (
+            <EmptyState
+              icon="🔍"
+              title="Nema rezultata"
+              description={`Nema gostiju koji odgovaraju pretrazi "${search}".`}
+            />
+          ) : (
+            <EmptyState
+              icon="🧳"
+              title="Jos nemate gostiju"
+              description={profile?.evisitor_connected
+                ? 'Uvezite povijest iz eVisitora ili cekajte da gost popuni self check-in formu.'
+                : 'Cim prvi gost popuni self check-in formu ili uvezete povijest iz eVisitora, pojavit ce se ovdje.'}
+            />
+          )
         ) : (
           <div className="space-y-2">
             {filtered.map((g) => (

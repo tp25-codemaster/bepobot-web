@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
+import EmptyState from '../../components/app/EmptyState'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
 
@@ -160,10 +161,13 @@ export default function KontaktiPage() {
             ))}
 
             {contacts.length === 0 && !editing && (
-              <div className="text-center py-8">
-                <div className="text-3xl mb-2">👥</div>
-                <div className="text-text-muted text-sm">Nemate jos kontakata. Dodajte prvog!</div>
-              </div>
+              <EmptyState
+                icon="👥"
+                title="Nemate jos kontakata"
+                description="Dodajte cistacicu, sudomacina ili odrzavanje da BepoBot moze automatski obavijestiti pravu osobu kad gost dolazi ili odlazi."
+                actionLabel="Dodaj prvi kontakt"
+                onAction={() => setEditing({ ...EMPTY })}
+              />
             )}
 
             {!editing && (

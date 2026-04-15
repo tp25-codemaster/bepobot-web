@@ -26,6 +26,7 @@ export interface WebhookResponse {
     title: string
     fields: { icon: string; label: string; value: string }[]
   }
+  error?: boolean
 }
 
 // Load last N messages from Supabase
@@ -85,6 +86,7 @@ export async function sendToWebhook(
     if (!res.ok || !res.data?.success) {
       return {
         type: 'text',
+        error: true,
         content:
           res.data?.error ||
           res.error ||

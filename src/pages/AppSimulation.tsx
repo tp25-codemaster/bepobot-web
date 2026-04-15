@@ -5,8 +5,10 @@ import QuickActions from '../components/chat/QuickActions'
 import TypingIndicator from '../components/chat/TypingIndicator'
 import ChatInput from '../components/chat/ChatInput'
 import SideMenu from '../components/app/SideMenu'
+import ErrorBanner from '../components/app/ErrorBanner'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { renderMarkdown } from '../lib/markdown'
 import { useChat, type DisplayMessage } from '../hooks/useChat'
 import {
   SCENARIOS,
@@ -27,6 +29,7 @@ export default function AppSimulation() {
     sending, sendMessage,
     addBotMessage, addUserMessage, clearMessages, reloadMessages,
     isDemo, historyLoaded,
+    lastError, retryLastMessage, dismissError,
   } = useChat()
 
   const [showTyping, setShowTyping] = useState(false)
@@ -337,12 +340,7 @@ export default function AppSimulation() {
           }
           return (
             <ChatBubble key={msg.id || i} role="bot" animate timestamp={msg.timestamp}>
-              {msg.content?.split('\n').map((line, j) => (
-                <span key={j}>
-                  {line}
-                  {j < (msg.content?.split('\n').length ?? 1) - 1 && <br />}
-                </span>
-              ))}
+              {renderMarkdown(msg.content || '')}
             </ChatBubble>
           )
         })}
@@ -367,6 +365,16 @@ export default function AppSimulation() {
               )
             )}
           </div>
+        </div>
+      )}
+
+      {lastError && (
+        <div className="flex-shrink-0 px-3 pb-2">
+          <ErrorBanner
+            message={lastError}
+            onRetry={retryLastMessage}
+            onDismiss={dismissError}
+          />
         </div>
       )}
 

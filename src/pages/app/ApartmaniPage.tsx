@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
+import EmptyState from '../../components/app/EmptyState'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
 
@@ -173,10 +174,13 @@ export default function ApartmaniPage() {
             ))}
 
             {apartments.length === 0 && !editing && (
-              <div className="text-center py-8">
-                <div className="text-3xl mb-2">🏠</div>
-                <div className="text-text-muted text-sm">Nemate jos apartmana. Dodajte prvi!</div>
-              </div>
+              <EmptyState
+                icon="🏠"
+                title="Nemate jos apartmana"
+                description="Dodajte prvi apartman da pocnete koristiti BepoBot. BepoBot ce koristiti ove podatke za check-in info, eVisitor prijavu i koordinaciju ciscenja."
+                actionLabel="Dodaj prvi apartman"
+                onAction={() => setEditing({ ...EMPTY })}
+              />
             )}
 
             {!editing && (

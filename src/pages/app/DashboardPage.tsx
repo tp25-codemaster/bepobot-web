@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../../components/app/AppShell'
+import EmptyState from '../../components/app/EmptyState'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChat } from '../../hooks/useChat'
 import { supabase, isDemoMode } from '../../lib/supabase'
 import ChatBubble from '../../components/chat/ChatBubble'
 import TypingIndicator from '../../components/chat/TypingIndicator'
+import { renderMarkdown } from '../../lib/markdown'
 
 interface Reservation {
   id: string
@@ -252,12 +254,11 @@ export default function DashboardPage() {
 
         {/* Empty state */}
         {!loading && reservations.length === 0 && todos.length === 0 && (
-          <div className="text-center py-8">
-            <div className="text-4xl mb-2">🏖️</div>
-            <div className="text-text-muted text-sm">
-              Nema aktivnih rezervacija. Uzivaj u miru!
-            </div>
-          </div>
+          <EmptyState
+            icon="🏖️"
+            title="Sve mirno"
+            description="Nema aktivnih rezervacija ni taskova. Uzivaj u miru!"
+          />
         )}
 
         {/* Mini chat */}
@@ -276,7 +277,7 @@ export default function DashboardPage() {
           <div className="p-3 space-y-2 max-h-48 overflow-y-auto">
             {lastMessages.length > 0 ? lastMessages.map((msg, i) => (
               <ChatBubble key={i} role={msg.type === 'user' ? 'user' : 'bot'} timestamp={msg.timestamp}>
-                {msg.content}
+                {msg.type === 'user' ? msg.content : renderMarkdown(msg.content || '')}
               </ChatBubble>
             )) : (
               <div className="text-center text-xs text-text-muted py-4">
