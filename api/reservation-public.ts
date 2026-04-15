@@ -5,11 +5,13 @@
 // sigurne podatke.
 
 import { getSupabaseAdmin } from '../server/supabase.js'
+import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
 
 interface VercelRequest {
   method?: string
   query?: { [key: string]: string | string[] | undefined }
   url?: string
+  headers?: { [key: string]: string | string[] | undefined }
 }
 interface VercelResponse {
   status: (code: number) => VercelResponse
@@ -32,6 +34,16 @@ export default async function handler(
   }
   if (req.method !== 'GET') {
     res.status(405).json({ success: false, error: 'Method not allowed' })
+    return
+  }
+
+  // Rate limit by IP — prevent token brute force
+  const ip = (req.headers?.['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
+    || (req.headers?.['x-real-ip'] as string | undefined)
+    || 'unknown'
+  const rl = await checkRateLimit('reservation-public', ip, LIMITS.PUBLIC)
+  if (!rl.allowed) {
+    res.status(429).json({ success: false, error: 'Too many requests' })
     return
   }
 

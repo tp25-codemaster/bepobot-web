@@ -12,6 +12,7 @@ import {
   executeCheckInReservation,
   BOT_TOOLS,
 } from '../server/bot-tools.js'
+import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
 
 interface VercelRequest {
   method?: string
@@ -101,6 +102,18 @@ export default async function handler(
   const user = await getCurrentUser(supabase)
   if (!user) {
     res.status(401).json({ success: false, error: 'Invalid session' })
+    return
+  }
+
+  // Rate limit: 30 msgs/min per user
+  const rl = await checkRateLimit('bot-chat', user.id, LIMITS.BOT_CHAT)
+  if (!rl.allowed) {
+    res.setHeader('X-RateLimit-Remaining', String(rl.remaining))
+    res.setHeader('X-RateLimit-Reset', String(rl.reset))
+    res.status(429).json({
+      success: false,
+      error: 'Previše poruka u kratkom vremenu. Pokušajte za minutu.',
+    })
     return
   }
 
