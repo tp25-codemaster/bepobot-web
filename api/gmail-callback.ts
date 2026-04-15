@@ -106,5 +106,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // Auto-register Gmail watch for Push Notifications (Phase 3)
+  // Fire-and-forget: if it fails, user can retry manually from settings
+  try {
+    await fetch('https://bepobot-web.vercel.app/api/gmail-watch', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${state}`,
+        'Content-Type': 'application/json',
+      },
+    })
+  } catch (err) {
+    console.error('Failed to register Gmail watch:', err)
+  }
+
   res.redirect('/app/postavke?gmail=connected')
 }
