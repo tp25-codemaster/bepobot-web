@@ -29,21 +29,53 @@ export interface WebhookResponse {
   error?: boolean
 }
 
-// Load last N messages from Supabase
-export async function loadMessages(userId: string): Promise<ChatMessage[]> {
+// Load last N messages from Supabase (most recent first, then reversed to chronological)
+// Default: 50 most recent messages. Older loaded on demand via loadOlderMessages.
+export async function loadMessages(
+  userId: string,
+  limit: number = 50,
+): Promise<ChatMessage[]> {
   if (isDemoMode) return []
 
   const { data, error } = await supabase
     .from('messages')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(limit)
 
   if (error) {
     console.error('Failed to load messages:', error)
     return []
   }
-  return data as ChatMessage[]
+  // Reverse to chronological order (oldest first)
+  return (data as ChatMessage[]).reverse()
+}
+
+/**
+ * Load older messages before a given timestamp.
+ * Used by infinite scroll when user scrolls to top of chat.
+ */
+export async function loadOlderMessages(
+  userId: string,
+  beforeTimestamp: string,
+  limit: number = 50,
+): Promise<ChatMessage[]> {
+  if (isDemoMode) return []
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('user_id', userId)
+    .lt('created_at', beforeTimestamp)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Failed to load older messages:', error)
+    return []
+  }
+  return (data as ChatMessage[]).reverse()
 }
 
 // Save message to Supabase

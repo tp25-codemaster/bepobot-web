@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChat } from '../../hooks/useChat'
-import { supabase, isDemoMode } from '../../lib/supabase'
+import { useReservations, usePendingReservations, useGuestsWithoutEmailCount } from '../../hooks/queries'
 import ChatBubble from '../../components/chat/ChatBubble'
 import TypingIndicator from '../../components/chat/TypingIndicator'
 import { renderMarkdown } from '../../lib/markdown'
@@ -47,12 +47,13 @@ function getGreeting(): string {
 }
 
 export default function DashboardPage() {
-  const { user, profile } = useAuth()
+  const { profile } = useAuth()
   const navigate = useNavigate()
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [pending, setPending] = useState<PendingRes[]>([])
-  const [guestsWithoutEmail, setGuestsWithoutEmail] = useState(0)
-  const [loading, setLoading] = useState(true)
+
+  const { data: allReservations = [], isLoading: loadingRes } = useReservations()
+  const { data: pendingData = [] } = usePendingReservations()
+  const { data: guestsWithoutEmail = 0 } = useGuestsWithoutEmailCount()
+  const loading = loadingRes
 
   const {
     messages, sending, sendMessage,
@@ -62,45 +63,12 @@ export default function DashboardPage() {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
   const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
 
-  useEffect(() => {
-    if (!user || isDemoMode) { setLoading(false); return }
-    let cancelled = false
-    ;(async () => {
-      const [resResult, pendResult, emailResult] = await Promise.all([
-        supabase
-          .from('reservations')
-          .select('id, guest_name, tourist_name, tourist_surname, guest_contact, check_in, check_out, status, guests_count, apartments(name)')
-          .eq('user_id', user.id)
-          .neq('status', 'cancelled')
-          .gte('check_out', today)
-          .order('check_in', { ascending: true })
-          .limit(50),
-        supabase
-          .from('pending_reservations')
-          .select('id, guest_name, apartment_name_raw, check_in, check_out, platform')
-          .eq('user_id', user.id)
-          .eq('status', 'pending'),
-        supabase
-          .from('reservations')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .is('guest_email', null)
-          .not('tourist_name', 'is', null),
-      ])
-
-      if (cancelled) return
-
-      const rows = ((resResult.data || []) as any[]).map((r) => ({
-        ...r,
-        apartments: Array.isArray(r.apartments) ? r.apartments[0] || null : r.apartments,
-      }))
-      setReservations(rows as Reservation[])
-      setPending((pendResult.data || []) as PendingRes[])
-      setGuestsWithoutEmail(emailResult.count || 0)
-      setLoading(false)
-    })()
-    return () => { cancelled = true }
-  }, [user])
+  // Filter active reservations (not cancelled, still running or future)
+  const reservations = useMemo(() =>
+    allReservations.filter(r => r.status !== 'cancelled' && r.check_out >= today).slice(0, 50) as unknown as Reservation[],
+    [allReservations, today]
+  )
+  const pending = pendingData as unknown as PendingRes[]
 
   const todayCheckins = useMemo(() =>
     reservations.filter(r => r.check_in === today), [reservations, today])

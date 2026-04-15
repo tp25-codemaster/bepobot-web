@@ -2,8 +2,20 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import * as Sentry from '@sentry/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import { AuthProvider } from './contexts/AuthContext'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 min
+      gcTime: 10 * 60 * 1000, // 10 min
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 // Sentry initialization — no-op if VITE_SENTRY_DSN not set
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN
@@ -59,6 +71,7 @@ function FallbackUI() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Sentry.ErrorBoundary fallback={<FallbackUI />}>
+    <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <AuthProvider>
         <Routes>
@@ -103,6 +116,7 @@ createRoot(document.getElementById('root')!).render(
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </QueryClientProvider>
     </Sentry.ErrorBoundary>
   </StrictMode>,
 )

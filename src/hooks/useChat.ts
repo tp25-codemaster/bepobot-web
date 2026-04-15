@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { isDemoMode } from '../lib/supabase'
 import {
   loadMessages,
+  loadOlderMessages,
   saveMessage,
   sendToWebhook,
   type ChatMessage,
@@ -52,24 +53,43 @@ export function useChat() {
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [historyLoaded, setHistoryLoaded] = useState(false)
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
   const lastFailedMessage = useRef<string | null>(null)
   const hasLoaded = useRef(false)
 
-  // Load history from Supabase on mount
+  // Load history from Supabase on mount (50 most recent)
   useEffect(() => {
     if (isDemoMode || !user || hasLoaded.current) return
     hasLoaded.current = true
 
     setLoading(true)
-    loadMessages(user.id).then((history) => {
+    loadMessages(user.id, 50).then((history) => {
       if (history.length > 0) {
         setMessages(history.map(chatToDisplay))
+        // If we loaded 50, there might be more older messages
+        setHasMoreOlder(history.length === 50)
       }
       setHistoryLoaded(true)
       setLoading(false)
     })
   }, [user])
+
+  // Load 50 older messages before the first loaded message
+  const loadOlder = useCallback(async () => {
+    if (isDemoMode || !user || loadingOlder || !hasMoreOlder) return
+    const firstMessage = messages.find((m) => m.timestamp)
+    if (!firstMessage?.timestamp) return
+
+    setLoadingOlder(true)
+    const older = await loadOlderMessages(user.id, firstMessage.timestamp, 50)
+    if (older.length < 50) setHasMoreOlder(false)
+    if (older.length > 0) {
+      setMessages((prev) => [...older.map(chatToDisplay), ...prev])
+    }
+    setLoadingOlder(false)
+  }, [user, messages, loadingOlder, hasMoreOlder])
 
   // Send user message → save → webhook → save bot response
   const sendMessage = useCallback(
@@ -198,8 +218,11 @@ export function useChat() {
     loading,
     sending,
     historyLoaded,
+    hasMoreOlder,
+    loadingOlder,
     lastError,
     sendMessage,
+    loadOlder,
     retryLastMessage,
     dismissError,
     addBotMessage,

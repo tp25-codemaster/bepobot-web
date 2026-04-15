@@ -29,6 +29,7 @@ export default function AppSimulation() {
     sending, sendMessage,
     addBotMessage, addUserMessage, clearMessages, reloadMessages,
     isDemo, historyLoaded,
+    hasMoreOlder, loadingOlder, loadOlder,
     lastError, retryLastMessage, dismissError,
   } = useChat()
 
@@ -309,6 +310,18 @@ export default function AppSimulation() {
             style={{ transform: `translateY(${Math.min(pullDistance, 60) - 40}px)` }}
           >
             <div className={`w-6 h-6 border-2 border-primary border-t-transparent rounded-full ${refreshing ? 'animate-spin' : ''}`} />
+          </div>
+        )}
+        {/* Load older messages button */}
+        {hasMoreOlder && messages.length > 0 && (
+          <div className="flex justify-center mb-2">
+            <button
+              onClick={loadOlder}
+              disabled={loadingOlder}
+              className="text-xs text-primary font-medium px-4 py-1.5 bg-primary/5 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              {loadingOlder ? 'Ucitavam...' : '↑ Ucitaj starije poruke'}
+            </button>
           </div>
         )}
         {messages.map((msg, i) => {
