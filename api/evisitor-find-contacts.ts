@@ -4,6 +4,8 @@
 // Za svakog gosta bez emaila: search Gmail → izvuci email/telefon → updateaj CRM.
 
 import { getUserSupabase, getCurrentUser, getSupabaseAdmin } from '../server/supabase.js'
+import { safeDecrypt } from '../server/crypto.js'
+import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -81,7 +83,7 @@ async function findContactForGuest(
     // Extract phone from body
     if (!foundPhone) {
       let bodyText = ''
-      const parts = msgData.payload?.parts || [msgData.payload as any]
+      const parts = msgData.payload?.parts || (msgData.payload ? [msgData.payload] : [])
       for (const part of parts) {
         if (part?.mimeType === 'text/plain' && part?.body?.data) {
           bodyText += Buffer.from(part.body.data, 'base64').toString('utf-8')
@@ -100,9 +102,7 @@ async function findContactForGuest(
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  setCorsHeaders(res)
 
   if (req.method === 'OPTIONS') { res.status(204).end(); return }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
@@ -156,7 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let found = 0
   let searched = 0
   const ownerEmail = profile.gmail_email || ''
-  const token = profile.gmail_access_token
+  const token = safeDecrypt(profile.gmail_access_token)
 
   // Process in batches of 5
   for (let i = 0; i < guestList.length; i += 5) {

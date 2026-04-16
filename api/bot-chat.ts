@@ -20,6 +20,7 @@ import {
   BOT_TOOLS,
 } from '../server/bot-tools.js'
 import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
+import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -85,9 +86,7 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  setCorsHeaders(res)
 
   if (req.method === 'OPTIONS') {
     res.status(204).end()

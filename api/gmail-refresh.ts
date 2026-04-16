@@ -4,6 +4,8 @@
 // Poziva se iz n8n workflowa kad access_token istekne.
 
 import { getSupabaseAdmin } from '../server/supabase.js'
+import { encrypt, safeDecrypt } from '../server/crypto.js'
+import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -17,12 +19,12 @@ interface VercelResponse {
   end: () => void
 }
 
-const GOOGLE_CLIENT_ID = '590860880888-aq0jlqq7en5klatohs37ec7acuj0t2se.apps.googleusercontent.com'
-const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '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').trim()
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim() || '590860880888-aq0jlqq7en5klatohs37ec7acuj0t2se.apps.googleusercontent.com'
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET?.trim() || ''
 const API_SECRET = (process.env.EMAIL_API_SECRET || '').trim()
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  setCorsHeaders(res)
   if (req.method === 'OPTIONS') { res.status(204).end(); return }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
 
@@ -55,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: new URLSearchParams({
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        refresh_token: profile.gmail_refresh_token,
+        refresh_token: safeDecrypt(profile.gmail_refresh_token),
         grant_type: 'refresh_token',
       }),
     })
@@ -71,13 +73,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(400).json({ error: 'Token revoked', details: tokens.error }); return
     }
 
-    // Save new access token
+    // Save new access token (encrypted at rest); return plaintext to caller
     await supabase.from('profiles').update({
-      gmail_access_token: tokens.access_token,
+      gmail_access_token: encrypt(tokens.access_token),
     }).eq('id', user_id)
 
     res.status(200).json({ success: true, access_token: tokens.access_token })
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Refresh failed' })
   }
 }
