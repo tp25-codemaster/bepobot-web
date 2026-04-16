@@ -41,10 +41,10 @@ export default function AppShell({ title, children }: AppShellProps) {
             <div className="text-white font-semibold text-sm" aria-hidden="true">{title}</div>
           </div>
           <button
-            onClick={() => navigate('/app')}
-            className="text-white/60 text-sm hover:text-white transition-colors"
+            onClick={() => navigate('/app/chat')}
+            className="text-white/60 text-sm hover:text-white active:text-white/40 transition-colors px-2 py-1 rounded"
           >
-            Chat
+            💬 Chat
           </button>
         </div>
       </header>

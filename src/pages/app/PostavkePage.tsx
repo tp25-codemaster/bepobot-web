@@ -135,13 +135,13 @@ export default function PostavkePage() {
           <h3 className="font-semibold text-text mb-3">Jezik</h3>
           <div className="flex gap-2" role="group" aria-label="Odabir jezika">
             <button
-              className="flex-1 py-2 bg-primary text-white text-sm font-semibold rounded-lg"
+              className="flex-1 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 active:bg-primary/80 transition-colors"
               aria-pressed="true"
             >
               Hrvatski
             </button>
             <button
-              className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg"
+              className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors"
               aria-pressed="false"
             >
               English
@@ -152,7 +152,7 @@ export default function PostavkePage() {
         {/* Logout */}
         <button
           onClick={handleLogout}
-          className="w-full py-3 bg-red-50 text-red-600 font-semibold rounded-xl border border-red-200 hover:bg-red-100 transition-colors text-sm"
+          className="w-full py-3 bg-red-50 text-red-600 font-semibold rounded-xl border border-red-200 hover:bg-red-100 active:bg-red-200 transition-colors text-sm"
         >
           Odjavi se
         </button>

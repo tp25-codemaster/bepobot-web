@@ -20,10 +20,20 @@ function statusClasses(status: string): string {
   return 'bg-blue-100 border-blue-400 text-blue-800'
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Potvrđena',
+  pending: 'Na čekanju',
+  cancelled: 'Otkazana',
+  canceled: 'Otkazana',
+  completed: 'Završena',
+  active: 'Aktivna',
+}
+
 export default function KalendarPage() {
   const { user } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [touchStart, setTouchStart] = useState<number | null>(null)
@@ -54,6 +64,7 @@ export default function KalendarPage() {
   }, [user, currentDate])
 
   async function loadReservations() {
+    setLoading(true)
     const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
 
@@ -65,6 +76,7 @@ export default function KalendarPage() {
       .gte('check_out', monthStart)
 
     setReservations((data as unknown as Reservation[]) || [])
+    setLoading(false)
   }
 
   function getReservationsForDay(day: number, y = year, m = month): Reservation[] {
@@ -198,9 +210,18 @@ export default function KalendarPage() {
           ))}
         </div>
 
+        {/* Loading skeleton overlay for calendar grid */}
+        {loading && (
+          <div className="grid grid-cols-7 gap-1 mb-4">
+            {Array.from({ length: 35 }).map((_, i) => (
+              <div key={i} className="min-h-[64px] bg-gray-100 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        )}
+
         {/* Calendar grid — swipeable */}
         <div
-          className="grid grid-cols-7 gap-1 select-none"
+          className={`grid grid-cols-7 gap-1 select-none transition-opacity ${loading ? 'opacity-0 pointer-events-none absolute' : ''}`}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -331,7 +352,7 @@ export default function KalendarPage() {
                   </div>
                 </div>
                 <span className={`ml-3 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${statusClasses(r.status)}`}>
-                  {r.status}
+                  {STATUS_LABELS[r.status] || r.status}
                 </span>
               </button>
             ))}

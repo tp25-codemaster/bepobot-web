@@ -10,7 +10,7 @@ import {
   formatCheckInError,
 } from '../../lib/reservations'
 import type { Apartment, Reservation } from '../../types/index'
-import { formatDate, nights } from '../../lib/dateUtils'
+import { formatDate, formatDateRelative, nights } from '../../lib/dateUtils'
 
 const EMPTY: Omit<Reservation, 'id' | 'apartments'> = {
   apartment_id: '',
@@ -128,12 +128,18 @@ export default function RezervacijePage() {
     return apartments.find(a => a.id === aptId)?.name || 'Nepoznat'
   }
 
-  const statusColors = {
-    confirmed: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-700',
-    completed: 'bg-gray-100 text-gray-600',
+  const statusColors: Record<string, string> = {
+    confirmed: 'bg-green-100 text-green-700 border border-green-200',
+    pending: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+    cancelled: 'bg-red-100 text-red-700 border border-red-200',
+    completed: 'bg-gray-100 text-gray-600 border border-gray-200',
   }
-  const statusLabels = { confirmed: 'Potvrđeno', cancelled: 'Otkazano', completed: 'Završeno' }
+  const statusLabels: Record<string, string> = {
+    confirmed: 'Potvrđeno',
+    pending: 'Na čekanju',
+    cancelled: 'Otkazano',
+    completed: 'Završeno',
+  }
 
   return (
     <AppShell title="Rezervacije">
@@ -289,6 +295,7 @@ export default function RezervacijePage() {
                 className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary outline-none bg-white"
               >
                 <option value="confirmed">Potvrđeno</option>
+                <option value="pending">Na čekanju</option>
                 <option value="completed">Završeno</option>
                 <option value="cancelled">Otkazano</option>
               </select>
@@ -312,7 +319,7 @@ export default function RezervacijePage() {
               </button>
               <button
                 onClick={() => setEditing(null)}
-                className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg"
+                className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors"
               >
                 Odustani
               </button>
@@ -428,8 +435,14 @@ function ReservationCard({
           {statusLabels[r.status]}
         </span>
       </div>
-      <div className="flex items-center gap-4 text-sm text-text-muted mb-2">
-        <span>📅 {formatDate(r.check_in)} → {formatDate(r.check_out)}</span>
+      <div className="flex items-center gap-2 text-sm text-text-muted mb-2 flex-wrap">
+        <span>
+          📅{' '}
+          <span className={formatDateRelative(r.check_in) === 'Danas' || formatDateRelative(r.check_in) === 'Sutra' ? 'text-amber-700 font-semibold' : ''}>
+            {formatDateRelative(r.check_in)}
+          </span>
+          {' '}→ {formatDate(r.check_out)}
+        </span>
         <span className="text-xs">({nights(r.check_in, r.check_out)} noći)</span>
       </div>
       {r.notes && (
@@ -516,8 +529,18 @@ function ReservationCard({
       </div>
 
       <div className="flex gap-2 mt-3">
-        <button onClick={onEdit} className="text-xs text-primary font-medium">Uredi</button>
-        <button onClick={onDelete} className="text-xs text-red-500 font-medium">Obriši</button>
+        <button
+          onClick={onEdit}
+          className="text-xs text-primary font-medium px-2 py-1 rounded-md hover:bg-primary/10 active:bg-primary/20 transition-colors"
+        >
+          Uredi
+        </button>
+        <button
+          onClick={onDelete}
+          className="text-xs text-red-500 font-medium px-2 py-1 rounded-md hover:bg-red-50 active:bg-red-100 transition-colors"
+        >
+          Obriši
+        </button>
       </div>
     </div>
   )

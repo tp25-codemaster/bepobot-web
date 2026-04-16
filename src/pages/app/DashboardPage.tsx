@@ -9,7 +9,7 @@ import ChatBubble from '../../components/chat/ChatBubble'
 import TypingIndicator from '../../components/chat/TypingIndicator'
 import { renderMarkdown } from '../../lib/markdown'
 import type { Reservation, PendingReservation } from '../../types/index'
-import { formatDateShort, nights, getGreeting } from '../../lib/dateUtils'
+import { formatDateShort, formatDateRelative, nights, getGreeting } from '../../lib/dateUtils'
 
 type PendingRes = PendingReservation
 
@@ -131,18 +131,55 @@ export default function DashboardPage() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-3 gap-2">
-          <StatCard value={todayCheckins.length} label="Check-in danas" icon="🛬" color="bg-green-50 text-green-700" />
-          <StatCard value={todayCheckouts.length} label="Check-out danas" icon="🛫" color="bg-orange-50 text-orange-700" />
-          <StatCard value={activeGuests.length} label="Aktivni gosti" icon="🏠" color="bg-blue-50 text-blue-700" />
+        {loading ? (
+          <div className="grid grid-cols-3 gap-2">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            <StatCard value={todayCheckins.length} label="Check-in danas" icon="🛬" color="bg-green-50 text-green-700" urgent={todayCheckins.length > 0} />
+            <StatCard value={todayCheckouts.length} label="Check-out danas" icon="🛫" color="bg-orange-50 text-orange-700" urgent={todayCheckouts.length > 0} />
+            <StatCard value={activeGuests.length} label="Aktivni gosti" icon="🏠" color="bg-blue-50 text-blue-700" />
+          </div>
+        )}
+
+        {/* Quick action buttons */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { icon: '📋', label: 'Rezervacije', path: '/app/rezervacije' },
+            { icon: '📅', label: 'Kalendar', path: '/app/kalendar' },
+            { icon: '💬', label: 'Chat', path: '/app/chat' },
+            { icon: '🏠', label: 'Apartmani', path: '/app/apartmani' },
+          ].map(({ icon, label, path }) => (
+            <button
+              key={path}
+              onClick={() => navigate(path)}
+              className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 active:scale-95 transition-all"
+            >
+              <span className="text-xl">{icon}</span>
+              <span className="text-[10px] font-medium text-text-muted leading-tight text-center">{label}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Today's guests */}
-        {(todayCheckins.length > 0 || todayCheckouts.length > 0) && (
-          <div className="bg-white rounded-xl border border-border p-4">
-            <h2 className="font-semibold text-text text-sm mb-3">Danas</h2>
+        {/* Today's guests — highlighted */}
+        {loading ? (
+          <div className="bg-white rounded-xl border border-border p-4 space-y-2">
+            <div className="h-4 w-16 bg-gray-100 rounded animate-pulse mb-3" />
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : (todayCheckins.length > 0 || todayCheckouts.length > 0) && (
+          <div className="bg-white rounded-xl border-2 border-amber-300 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <h2 className="font-semibold text-amber-900 text-sm">Danas</h2>
+            </div>
             {todayCheckins.map(r => (
-              <GuestRow key={r.id} r={r} badge="CHECK-IN" badgeColor="bg-green-100 text-green-700" />
+              <GuestRow key={r.id} r={r} badge="CHECK-IN" badgeColor="bg-green-100 text-green-700" highlight />
             ))}
             {todayCheckouts.map(r => (
               <GuestRow key={r.id} r={r} badge="CHECK-OUT" badgeColor="bg-orange-100 text-orange-700" />
@@ -151,16 +188,19 @@ export default function DashboardPage() {
         )}
 
         {/* Upcoming */}
-        {upcoming.length > 0 && (
+        {!loading && upcoming.length > 0 && (
           <div className="bg-white rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-text text-sm">Sljedeći dolasci</h2>
-              <button onClick={() => navigate('/app/kalendar')} className="text-xs text-primary font-medium">
+              <button
+                onClick={() => navigate('/app/kalendar')}
+                className="text-xs text-primary font-medium hover:underline active:opacity-70 transition-opacity"
+              >
                 Kalendar →
               </button>
             </div>
             {upcoming.map(r => (
-              <GuestRow key={r.id} r={r} />
+              <GuestRow key={r.id} r={r} showRelativeDate />
             ))}
           </div>
         )}
@@ -174,7 +214,7 @@ export default function DashboardPage() {
                 <button
                   key={i}
                   onClick={() => handleTodoClick(item.action)}
-                  className="w-full flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg text-left hover:bg-primary/5 transition-colors"
+                  className="w-full flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg text-left hover:bg-primary/5 active:bg-primary/10 transition-colors"
                 >
                   <span className="text-base">{item.icon}</span>
                   <span className="text-sm text-text flex-1">{item.text}</span>
@@ -248,24 +288,25 @@ export default function DashboardPage() {
   )
 }
 
-function StatCard({ value, label, color }: { value: number; label: string; icon?: string; color: string }) {
+function StatCard({ value, label, color, urgent }: { value: number; label: string; icon?: string; color: string; urgent?: boolean }) {
   return (
-    <div className={`rounded-xl p-3 text-center ${color}`}>
+    <div className={`rounded-xl p-3 text-center transition-transform ${color} ${urgent ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
       <div className="text-2xl font-extrabold">{value}</div>
-      <div className="text-[10px] mt-0.5 uppercase tracking-wide opacity-80">{label}</div>
+      <div className="text-[10px] mt-0.5 uppercase tracking-wide opacity-80 leading-tight">{label}</div>
     </div>
   )
 }
 
-function GuestRow({ r, badge, badgeColor }: { r: Reservation; badge?: string; badgeColor?: string }) {
+function GuestRow({ r, badge, badgeColor, highlight, showRelativeDate }: { r: Reservation; badge?: string; badgeColor?: string; highlight?: boolean; showRelativeDate?: boolean }) {
   const apt = r.apartments?.name || '-'
   const n = nights(r.check_in, r.check_out)
+  const checkInLabel = showRelativeDate ? formatDateRelative(r.check_in) : formatDateShort(r.check_in)
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+    <div className={`flex items-center justify-between py-2.5 border-b border-border last:border-0 ${highlight ? 'bg-amber-50/50 -mx-4 px-4 rounded-lg' : ''}`}>
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-text truncate">{r.guest_name}</div>
         <div className="text-xs text-text-muted">
-          {apt} · {formatDateShort(r.check_in)} → {formatDateShort(r.check_out)} ({n} noći)
+          {apt} · {checkInLabel} → {formatDateShort(r.check_out)} ({n} noći)
         </div>
       </div>
       {badge && (

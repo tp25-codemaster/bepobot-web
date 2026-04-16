@@ -93,3 +93,13 @@ body {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* Spinner border width utility (Tailwind v4 may not include border-3) */
+.border-3 {
+  border-width: 3px;
+}
+
+/* Active scale utility */
+.active\:scale-98:active {
+  transform: scale(0.98);
+}

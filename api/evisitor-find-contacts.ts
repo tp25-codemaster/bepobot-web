@@ -4,6 +4,7 @@
 // Za svakog gosta bez emaila: search Gmail → izvuci email/telefon → updateaj CRM.
 
 import { getUserSupabase, getCurrentUser, getSupabaseAdmin } from '../server/supabase.js'
+import { safeDecrypt } from '../server/crypto.js'
 
 interface VercelRequest {
   method?: string
@@ -156,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let found = 0
   let searched = 0
   const ownerEmail = profile.gmail_email || ''
-  const token = profile.gmail_access_token
+  const token = safeDecrypt(profile.gmail_access_token)
 
   // Process in batches of 5
   for (let i = 0; i < guestList.length; i += 5) {

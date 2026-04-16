@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   fetchPublicReservation,
@@ -55,15 +55,34 @@ const INITIAL: FormState = {
   guest_phone: '',
 }
 
+// Step definitions for progress indicator
+const STEPS = [
+  { id: 1, label: 'Osobni podaci' },
+  { id: 2, label: 'Dokument' },
+  { id: 3, label: 'Prebivalište' },
+  { id: 4, label: 'Kontakt' },
+]
+
+interface FieldErrors {
+  tourist_name?: string
+  tourist_surname?: string
+  date_of_birth?: string
+  document_number?: string
+  city_of_residence?: string
+}
+
 export default function GuestCheckIn() {
   const { token } = useParams<{ token: string }>()
   const [reservation, setReservation] = useState<PublicReservation | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(INITIAL)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  // Track which step user has reached (1-4) for progress indicator
+  const [activeStep, setActiveStep] = useState(1)
 
   useEffect(() => {
     if (!token) {
@@ -96,11 +115,46 @@ export default function GuestCheckIn() {
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((p) => ({ ...p, [key]: value }))
+    // Clear field error on change
+    if (key in fieldErrors) {
+      setFieldErrors(prev => ({ ...prev, [key]: undefined }))
+    }
+    // Update active step based on filled fields
+    if (key === 'tourist_name' || key === 'tourist_surname' || key === 'date_of_birth') {
+      setActiveStep(prev => Math.max(prev, 1))
+    } else if (key === 'document_number') {
+      setActiveStep(prev => Math.max(prev, 2))
+    } else if (key === 'city_of_residence' || key === 'citizenship') {
+      setActiveStep(prev => Math.max(prev, 3))
+    } else if (key === 'guest_email' || key === 'guest_phone') {
+      setActiveStep(prev => Math.max(prev, 4))
+    }
   }
+
+  const validateForm = useCallback((): FieldErrors => {
+    const errors: FieldErrors = {}
+    if (!form.tourist_name.trim()) errors.tourist_name = 'Ime je obavezno'
+    if (!form.tourist_surname.trim()) errors.tourist_surname = 'Prezime je obavezno'
+    if (!form.date_of_birth) errors.date_of_birth = 'Datum rođenja je obavezan'
+    if (!form.document_number.trim()) errors.document_number = 'Broj dokumenta je obavezan'
+    if (!form.city_of_residence.trim()) errors.city_of_residence = 'Grad je obavezan'
+    return errors
+  }, [form])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!token) return
+
+    const errors = validateForm()
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      // Scroll to first error
+      const firstErrorKey = Object.keys(errors)[0]
+      const el = document.querySelector(`[data-field="${firstErrorKey}"]`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+
     setSubmitting(true)
     setSubmitError(null)
     const res = await submitGuestData({
@@ -128,7 +182,10 @@ export default function GuestCheckIn() {
   if (loading) {
     return (
       <GuestShell>
-        <div className="text-center text-text-muted py-12">Učitavanje...</div>
+        <div className="flex flex-col items-center py-16 gap-3">
+          <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="text-sm text-text-muted">Učitavanje rezervacije...</div>
+        </div>
       </GuestShell>
     )
   }
@@ -202,6 +259,35 @@ export default function GuestCheckIn() {
 
   return (
     <GuestShell>
+      {/* Progress indicator */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          {STEPS.map((step, idx) => (
+            <div key={step.id} className="flex items-center flex-1">
+              <div className="flex flex-col items-center">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                  step.id <= activeStep
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-200 text-gray-400'
+                }`}>
+                  {step.id}
+                </div>
+                <div className={`text-[9px] mt-0.5 font-medium text-center leading-tight ${
+                  step.id <= activeStep ? 'text-primary' : 'text-gray-400'
+                }`}>
+                  {step.label}
+                </div>
+              </div>
+              {idx < STEPS.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-1 mb-4 transition-colors ${
+                  step.id < activeStep ? 'bg-primary' : 'bg-gray-200'
+                }`} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Welcome card */}
       <div className="bg-primary text-white rounded-xl p-5 mb-4">
         <div className="text-primary-light text-xs">
@@ -238,28 +324,28 @@ export default function GuestCheckIn() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {/* Osobni podaci */}
         <Section title="👤 Osobni podaci">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Ime *">
+            <Field label="Ime *" error={fieldErrors.tourist_name} fieldKey="tourist_name">
               <input
                 type="text"
-                required
                 aria-required="true"
                 value={form.tourist_name}
                 onChange={(e) => update('tourist_name', e.target.value)}
-                className={inputCls}
+                className={fieldErrors.tourist_name ? inputErrorCls : inputCls}
+                autoComplete="given-name"
               />
             </Field>
-            <Field label="Prezime *">
+            <Field label="Prezime *" error={fieldErrors.tourist_surname} fieldKey="tourist_surname">
               <input
                 type="text"
-                required
                 aria-required="true"
                 value={form.tourist_surname}
                 onChange={(e) => update('tourist_surname', e.target.value)}
-                className={inputCls}
+                className={fieldErrors.tourist_surname ? inputErrorCls : inputCls}
+                autoComplete="family-name"
               />
             </Field>
           </div>
@@ -277,14 +363,13 @@ export default function GuestCheckIn() {
                 <option value="ženski">ženski</option>
               </select>
             </Field>
-            <Field label="Datum rođenja *">
+            <Field label="Datum rođenja *" error={fieldErrors.date_of_birth} fieldKey="date_of_birth">
               <input
                 type="date"
-                required
                 aria-required="true"
                 value={form.date_of_birth}
                 onChange={(e) => update('date_of_birth', e.target.value)}
-                className={inputCls}
+                className={fieldErrors.date_of_birth ? inputErrorCls : inputCls}
               />
             </Field>
           </div>
@@ -307,14 +392,14 @@ export default function GuestCheckIn() {
                 ))}
               </select>
             </Field>
-            <Field label="Broj dokumenta *">
+            <Field label="Broj dokumenta *" error={fieldErrors.document_number} fieldKey="document_number">
               <input
                 type="text"
-                required
                 aria-required="true"
                 value={form.document_number}
                 onChange={(e) => update('document_number', e.target.value)}
-                className={inputCls}
+                className={fieldErrors.document_number ? inputErrorCls : inputCls}
+                autoComplete="off"
               />
             </Field>
           </div>
@@ -337,14 +422,14 @@ export default function GuestCheckIn() {
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Grad *">
+            <Field label="Grad *" error={fieldErrors.city_of_residence} fieldKey="city_of_residence">
               <input
                 type="text"
-                required
                 aria-required="true"
                 value={form.city_of_residence}
                 onChange={(e) => update('city_of_residence', e.target.value)}
-                className={inputCls}
+                className={fieldErrors.city_of_residence ? inputErrorCls : inputCls}
+                autoComplete="address-level2"
               />
             </Field>
             <Field label="Adresa">
@@ -354,6 +439,7 @@ export default function GuestCheckIn() {
                 onChange={(e) => update('residence_address', e.target.value)}
                 className={inputCls}
                 placeholder="opcionalno"
+                autoComplete="street-address"
               />
             </Field>
           </div>
@@ -368,6 +454,7 @@ export default function GuestCheckIn() {
               onChange={(e) => update('guest_email', e.target.value)}
               className={inputCls}
               placeholder="vas@email.com"
+              autoComplete="email"
             />
           </Field>
           <Field label="Telefon">
@@ -377,6 +464,7 @@ export default function GuestCheckIn() {
               onChange={(e) => update('guest_phone', e.target.value)}
               className={inputCls}
               placeholder="+385 91 123 4567"
+              autoComplete="tel"
             />
           </Field>
         </Section>
@@ -384,9 +472,16 @@ export default function GuestCheckIn() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 active:scale-98 disabled:opacity-50 transition-all"
+          className="w-full py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
         >
-          {submitting ? '⏳ Šaljem...' : '✓ Pošalji domaćinu'}
+          {submitting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Šaljem...</span>
+            </>
+          ) : (
+            '✓ Pošalji domaćinu'
+          )}
         </button>
 
         <p className="text-xs text-text-muted text-center">
@@ -433,14 +528,26 @@ function Section({
 function Field({
   label,
   children,
+  error,
+  fieldKey,
 }: {
   label: string
   children: React.ReactNode
+  error?: string
+  fieldKey?: string
 }) {
   return (
-    <label className="block">
-      <div className="text-xs font-medium text-text-muted mb-1">{label}</div>
+    <label className="block" data-field={fieldKey}>
+      <div className={`text-xs font-medium mb-1 ${error ? 'text-red-600' : 'text-text-muted'}`}>{label}</div>
       {children}
+      {error && (
+        <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+          {error}
+        </p>
+      )}
     </label>
   )
 }
@@ -466,4 +573,7 @@ function InfoRow({
 }
 
 const inputCls =
-  'w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary'
+  'w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors'
+
+const inputErrorCls =
+  'w-full px-3 py-2 text-sm border border-red-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-500 bg-red-50/30 transition-colors'

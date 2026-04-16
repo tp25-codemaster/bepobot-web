@@ -133,14 +133,14 @@ export default function ApartmaniPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditing({ ...apt })}
-                      className="text-xs text-primary font-medium"
+                      className="text-xs text-primary font-medium px-2 py-1 rounded-md hover:bg-primary/10 active:bg-primary/20 transition-colors"
                       aria-label={`Uredi apartman ${apt.name}`}
                     >
                       Uredi
                     </button>
                     <button
                       onClick={() => setDeleteConfirmId(apt.id)}
-                      className="text-xs text-red-500 font-medium"
+                      className="text-xs text-red-500 font-medium px-2 py-1 rounded-md hover:bg-red-50 active:bg-red-100 transition-colors"
                       aria-label={`Obriši apartman ${apt.name}`}
                     >
                       Obriši
@@ -304,7 +304,7 @@ export default function ApartmaniPage() {
               </button>
               <button
                 onClick={() => setEditing(null)}
-                className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg"
+                className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors"
               >
                 Odustani
               </button>
