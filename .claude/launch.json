@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bepobot-dev",
+      "runtimeExecutable": "/opt/homebrew/bin/npx",
+      "runtimeArgs": ["vite", "--host"],
+      "port": 5173
+    },
+    {
+      "name": "bepobot-dev2",
+      "runtimeExecutable": "/opt/homebrew/bin/npx",
+      "runtimeArgs": ["vite", "--host", "--port", "5174"],
+      "port": 5174
+    }
+  ]
+}
