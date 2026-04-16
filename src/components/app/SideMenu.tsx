@@ -8,15 +8,15 @@ interface SideMenuProps {
 }
 
 const menuItems = [
-  { path: '/app', icon: '🏠', label: 'Početna' },
-  { path: '/app/chat', icon: '💬', label: 'Chat' },
-  { path: '/app/rezervacije', icon: '📋', label: 'Rezervacije' },
-  { path: '/app/kalendar', icon: '📅', label: 'Kalendar' },
-  { path: '/app/apartmani', icon: '🏠', label: 'Moji apartmani' },
-  { path: '/app/kontakti', icon: '👥', label: 'Kontakti' },
-  { path: '/app/gosti', icon: '🧳', label: 'Gosti (CRM)' },
-  { path: '/app/evisitor', icon: '🏛️', label: 'eVisitor' },
-  { path: '/app/postavke', icon: '⚙️', label: 'Postavke' },
+  { path: '/app', icon: <IconHome />, label: 'Početna' },
+  { path: '/app/chat', icon: <IconChat />, label: 'Chat' },
+  { path: '/app/rezervacije', icon: <IconList />, label: 'Rezervacije' },
+  { path: '/app/kalendar', icon: <IconCalendar />, label: 'Kalendar' },
+  { path: '/app/apartmani', icon: <IconBuilding />, label: 'Moji apartmani' },
+  { path: '/app/kontakti', icon: <IconPhone />, label: 'Kontakti' },
+  { path: '/app/gosti', icon: <IconUsers />, label: 'Gosti (CRM)' },
+  { path: '/app/evisitor', icon: <IconShield />, label: 'eVisitor' },
+  { path: '/app/postavke', icon: <IconSettings />, label: 'Postavke' },
 ]
 
 const FOCUSABLE_SELECTORS =
@@ -80,13 +80,17 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
     return () => window.removeEventListener('keydown', handleTab)
   }, [open])
 
+  const displayName = profile?.full_name || (isDemo ? 'Demo korisnik' : user?.email || 'Korisnik')
+  const displayEmail = isDemo ? 'demo@bepobot.hr' : user?.email || ''
+  const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+
   return (
     <>
       {/* Backdrop */}
       <div
         onClick={onClose}
         aria-hidden="true"
-        className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/50 z-40 backdrop-blur-sm transition-opacity duration-300 ${
           open ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
@@ -98,28 +102,29 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Izbornik"
-        className={`fixed top-0 left-0 bottom-0 w-72 bg-white z-50 shadow-2xl transition-transform duration-300 ease-out flex flex-col ${
+        className={`fixed top-0 left-0 bottom-0 w-72 bg-white z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* User info */}
-        <div className="bg-primary p-5 pt-[calc(env(safe-area-inset-top)+20px)]">
-          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mb-3" aria-hidden="true">
-            <span className="text-white text-xl font-bold">
-              {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'D'}
-            </span>
+        {/* Header with close button */}
+        <div className="flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+16px)] pb-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+              </svg>
+            </div>
+            <span className="text-sm font-bold text-primary tracking-tight">BepoBot</span>
           </div>
-          <div className="text-white font-semibold">
-            {profile?.full_name || (isDemo ? 'Demo korisnik' : user?.email || 'Korisnik')}
-          </div>
-          <div className="text-white/70 text-sm truncate">
-            {isDemo ? 'demo@bepobot.hr' : user?.email || ''}
-          </div>
-          {profile?.plan && (
-            <span className="inline-block mt-2 px-2 py-0.5 bg-white/15 text-white text-xs font-medium rounded-full capitalize">
-              {profile.plan === 'trial' ? '14 dana trial' : profile.plan}
-            </span>
-          )}
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:bg-light hover:text-text transition-colors"
+            aria-label="Zatvori izbornik"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Menu items */}
@@ -132,30 +137,152 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                 to={item.path}
                 onClick={onClose}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3.5 mx-2 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
                   isActive
-                    ? 'bg-primary/10 text-primary border-r-3 border-primary'
-                    : 'text-text hover:bg-gray-50'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-text hover:bg-light hover:text-primary'
                 }`}
               >
-                <span className="text-lg" aria-hidden="true">{item.icon}</span>
+                <span
+                  className={`flex-shrink-0 w-5 h-5 flex items-center justify-center ${isActive ? 'text-white' : 'text-text-muted'}`}
+                  aria-hidden="true"
+                >
+                  {item.icon}
+                </span>
                 {item.label}
               </Link>
             )
           })}
         </nav>
 
-        {/* Support */}
-        <div className="border-t border-border p-4">
+        {/* User info at bottom */}
+        <div className="border-t border-border p-4 space-y-3">
           <a
             href="mailto:info@bepobot.hr"
-            className="flex items-center gap-3 px-1 py-2 text-sm text-text-muted hover:text-primary transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-muted hover:bg-light hover:text-primary transition-colors"
           >
-            <span className="text-lg" aria-hidden="true">🆘</span>
+            <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-text-muted">
+              <IconSupport />
+            </span>
             Podrška
           </a>
+
+          {/* User avatar row */}
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-sm font-bold">{initials}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-text truncate">{displayName}</div>
+              <div className="text-xs text-text-muted truncate">{displayEmail}</div>
+            </div>
+            {profile?.plan && (
+              <span className="flex-shrink-0 px-2 py-0.5 bg-light text-primary text-[10px] font-semibold rounded-full capitalize">
+                {profile.plan === 'trial' ? 'Trial' : profile.plan}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </>
+  )
+}
+
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+
+function IconHome() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  )
+}
+
+function IconChat() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
+
+function IconList() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  )
+}
+
+function IconCalendar() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  )
+}
+
+function IconBuilding() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="15" rx="1" />
+      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+      <line x1="12" y1="12" x2="12" y2="12" />
+    </svg>
+  )
+}
+
+function IconPhone() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  )
+}
+
+function IconUsers() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+function IconShield() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  )
+}
+
+function IconSettings() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+function IconSupport() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
   )
 }
