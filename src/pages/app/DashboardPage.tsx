@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
+import ErrorBanner from '../../components/app/ErrorBanner'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChat } from '../../hooks/useChat'
 import { useReservations, usePendingReservations, useGuestsWithoutEmailCount } from '../../hooks/queries'
@@ -17,7 +18,7 @@ export default function DashboardPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
 
-  const { data: allReservations = [], isLoading: loadingRes } = useReservations()
+  const { data: allReservations = [], isLoading: loadingRes, error: resError, refetch: refetchRes } = useReservations()
   const { data: pendingData = [] } = usePendingReservations()
   const { data: guestsWithoutEmail = 0 } = useGuestsWithoutEmailCount()
   const loading = loadingRes
@@ -120,6 +121,13 @@ export default function DashboardPage() {
   return (
     <AppShell title="Početna">
       <div className="p-4 space-y-4 max-w-2xl mx-auto pb-20">
+        {resError && (
+          <ErrorBanner
+            message="Greška pri učitavanju rezervacija. Provjeri vezu i pokušaj ponovo."
+            onRetry={() => refetchRes()}
+          />
+        )}
+
         {/* Greeting */}
         <div>
           <h1 className="text-xl font-bold text-text">

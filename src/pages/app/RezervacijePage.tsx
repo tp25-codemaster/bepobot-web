@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
+import ErrorBanner from '../../components/app/ErrorBanner'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
@@ -35,6 +36,7 @@ export default function RezervacijePage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [apartments, setApartments] = useState<Apartment[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [editing, setEditing] = useState<(Reservation & { isNew?: boolean }) | null>(null)
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming')
@@ -64,6 +66,7 @@ export default function RezervacijePage() {
 
   async function loadData() {
     setLoading(true)
+    setLoadError(null)
     const [resResult, aptResult] = await Promise.all([
       supabase
         .from('reservations')
@@ -76,6 +79,11 @@ export default function RezervacijePage() {
         .eq('user_id', user!.id)
         .order('created_at', { ascending: true }),
     ])
+    if (resResult.error || aptResult.error) {
+      setLoadError('Greška pri učitavanju. Provjeri vezu i pokušaj ponovo.')
+      setLoading(false)
+      return
+    }
     setReservations((resResult.data as Reservation[]) || [])
     setApartments((aptResult.data as Apartment[]) || [])
     setLoading(false)
@@ -143,7 +151,11 @@ export default function RezervacijePage() {
 
   return (
     <AppShell title="Rezervacije">
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 max-w-2xl mx-auto">
+        {loadError && (
+          <ErrorBanner message={loadError} onRetry={loadData} onDismiss={() => setLoadError(null)} />
+        )}
+
         {/* Filter tabs */}
         <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
           {(['upcoming', 'past', 'all'] as const).map(f => (

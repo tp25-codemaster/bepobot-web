@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
+import ErrorBanner from '../../components/app/ErrorBanner'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
@@ -27,6 +28,7 @@ export default function ApartmaniPage() {
   const { user } = useAuth()
   const [apartments, setApartments] = useState<Apartment[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Apartment | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -44,11 +46,17 @@ export default function ApartmaniPage() {
 
   async function loadApartments() {
     setLoading(true)
-    const { data } = await supabase
+    setLoadError(null)
+    const { data, error } = await supabase
       .from('apartments')
       .select('*')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: true })
+    if (error) {
+      setLoadError('Greška pri učitavanju apartmana. Provjeri vezu i pokušaj ponovo.')
+      setLoading(false)
+      return
+    }
     setApartments((data as Apartment[]) || [])
     setLoading(false)
   }
@@ -117,7 +125,11 @@ export default function ApartmaniPage() {
 
   return (
     <AppShell title="Moji apartmani">
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 max-w-2xl mx-auto">
+        {loadError && (
+          <ErrorBanner message={loadError} onRetry={loadApartments} onDismiss={() => setLoadError(null)} />
+        )}
+
         {loading ? (
           <div className="p-6 space-y-4">
             {[...Array(5)].map((_, i) => (
