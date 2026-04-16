@@ -105,8 +105,7 @@ export async function verifyQStash(req: {
   body: unknown
 }): Promise<boolean> {
   if (!QSTASH_CURRENT_SIGNING_KEY) {
-    // In dev/no-secret mode, allow all (for local testing)
-    return true
+    throw new Error('QSTASH_CURRENT_SIGNING_KEY not configured — worker endpoint requires QStash signing')
   }
   const signature = (req.headers['upstash-signature'] || req.headers['Upstash-Signature']) as string | undefined
   if (!signature) return false
@@ -164,5 +163,11 @@ export async function getJob(jobId: string): Promise<{
     .select('id, user_id, type, payload, status')
     .eq('id', jobId)
     .single()
-  return data as any
+  return data as {
+    id: string
+    user_id: string
+    type: JobType
+    payload: Record<string, unknown>
+    status: string
+  } | null
 }

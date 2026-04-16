@@ -8,6 +8,7 @@ import https from 'node:https'
 import { Buffer } from 'node:buffer'
 import { getUserSupabase, getCurrentUser, getSupabaseAdmin } from '../server/supabase.js'
 import { decrypt } from '../server/crypto.js'
+import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -57,9 +58,7 @@ function parseMsDate(d: string | null): string | null {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  setCorsHeaders(res)
 
   if (req.method === 'OPTIONS') { res.status(204).end(); return }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }

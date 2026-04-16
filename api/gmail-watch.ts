@@ -12,6 +12,7 @@
 //   - BOT_BEARER_TOKEN (or CRON_SECRET) for renewal cron
 
 import { getUserSupabase, getCurrentUser, getSupabaseAdmin } from '../server/supabase.js'
+import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -77,9 +78,7 @@ async function registerWatch(
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  setCorsHeaders(res, 'POST, GET, OPTIONS')
 
   if (req.method === 'OPTIONS') { res.status(204).end(); return }
 

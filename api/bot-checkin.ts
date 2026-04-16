@@ -13,6 +13,8 @@ import {
 } from '../server/evisitor.js'
 import { decrypt } from '../server/crypto.js'
 import { getSupabaseAdmin } from '../server/supabase.js'
+import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
+import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -35,9 +37,7 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  setCorsHeaders(res)
 
   if (req.method === 'OPTIONS') {
     res.status(204).end()
@@ -87,6 +87,12 @@ export default async function handler(
     res
       .status(400)
       .json({ success: false, error: 'user_id i reservation_id obavezni' })
+    return
+  }
+
+  const rl = await checkRateLimit('bot-checkin', userId, LIMITS.BOT_ENDPOINT)
+  if (!rl.allowed) {
+    res.status(429).json({ success: false, error: 'Too many requests' })
     return
   }
 

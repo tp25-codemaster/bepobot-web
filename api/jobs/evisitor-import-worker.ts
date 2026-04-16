@@ -133,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Content-Length': String(Buffer.byteLength(loginBody)),
       },
     }, loginBody)
-  } catch (e) {
+  } catch {
     await updateJob(jobId, { status: 'failed', error: 'eVisitor login network error' })
     res.status(200).json({ success: false })
     return
@@ -165,7 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       method: 'GET',
       headers: { Cookie: cookieHeader, Accept: 'application/json' },
     })
-  } catch (e) {
+  } catch {
     await updateJob(jobId, { status: 'failed', error: 'eVisitor Tourist fetch error' })
     res.status(200).json({ success: false })
     return

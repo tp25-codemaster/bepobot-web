@@ -5,6 +5,7 @@
 
 import { getSupabaseAdmin } from '../server/supabase.js'
 import { encrypt, safeDecrypt } from '../server/crypto.js'
+import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -23,7 +24,7 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET?.trim() || ''
 const API_SECRET = (process.env.EMAIL_API_SECRET || '').trim()
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  setCorsHeaders(res)
   if (req.method === 'OPTIONS') { res.status(204).end(); return }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
 
@@ -78,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }).eq('id', user_id)
 
     res.status(200).json({ success: true, access_token: tokens.access_token })
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Refresh failed' })
   }
 }
