@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
+import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   connectEVisitor,
@@ -89,6 +90,7 @@ export default function EVisitorSettingsPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [justConnected, setJustConnected] = useState(false)
   const [log, setLog] = useState<LogEntry[]>([])
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
 
   const profileLoading = authLoading || !profile
   const connected = profile?.evisitor_connected ?? false
@@ -151,10 +153,7 @@ export default function EVisitorSettingsPage() {
   }
 
   async function handleDisconnect() {
-    if (
-      !confirm('Odspojiti eVisitor račun? Možete ga uvijek ponovno povezati.')
-    )
-      return
+    setConfirmDisconnect(false)
     setSubmitting(true)
     setError(null)
     setSuccess(null)
@@ -323,7 +322,7 @@ export default function EVisitorSettingsPage() {
                     )}
                   </button>
                   <button
-                    onClick={handleDisconnect}
+                    onClick={() => setConfirmDisconnect(true)}
                     disabled={submitting || testing}
                     className="w-full py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
@@ -410,6 +409,16 @@ export default function EVisitorSettingsPage() {
           </>
         )}
       </div>
+
+      <ConfirmModal
+        open={confirmDisconnect}
+        title="Odspoji eVisitor račun"
+        message="Jesi li siguran/a da želiš odspojiti eVisitor račun? Možeš ga uvijek ponovno povezati."
+        confirmLabel="Odspoji"
+        onConfirm={handleDisconnect}
+        onCancel={() => setConfirmDisconnect(false)}
+        danger
+      />
     </AppShell>
   )
 }

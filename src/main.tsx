@@ -1,6 +1,6 @@
-import { StrictMode } from 'react'
+import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import * as Sentry from '@sentry/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
@@ -53,17 +53,53 @@ function FallbackUI() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
       <div className="max-w-md text-center">
         <div className="text-5xl mb-4">⚠️</div>
-        <h1 className="text-xl font-bold text-text mb-2">Nesto je poslo krivo</h1>
+        <h1 className="text-xl font-bold text-text mb-2">Nešto je pošlo krivo</h1>
         <p className="text-sm text-text-muted mb-4">
-          Dogodila se neocekivana greska. Pokusajte osvjeziti stranicu.
+          Dogodila se neočekivana greška. Pokušajte osvježiti stranicu.
         </p>
         <button
           onClick={() => window.location.reload()}
           className="px-4 py-2 bg-primary text-white font-semibold rounded-lg"
         >
-          Osvjezi
+          Osvježi
         </button>
       </div>
+    </div>
+  )
+}
+
+// Mapa ruta na naslove za screen reader announcements
+const ROUTE_TITLES: Record<string, string> = {
+  '/': 'Naslovna',
+  '/app': 'Početna',
+  '/app/chat': 'Chat',
+  '/app/rezervacije': 'Rezervacije',
+  '/app/kalendar': 'Kalendar',
+  '/app/apartmani': 'Moji apartmani',
+  '/app/kontakti': 'Kontakti',
+  '/app/gosti': 'Gosti',
+  '/app/evisitor': 'eVisitor',
+  '/app/postavke': 'Postavke',
+  '/app/login': 'Prijava',
+}
+
+function RouteAnnouncer() {
+  const location = useLocation()
+  const [pageTitle, setPageTitle] = useState('')
+
+  useEffect(() => {
+    const title = ROUTE_TITLES[location.pathname] || 'BepoBot'
+    setPageTitle(title)
+  }, [location.pathname])
+
+  return (
+    <div
+      aria-live="polite"
+      aria-atomic="true"
+      className="sr-only"
+      id="route-announcer"
+    >
+      {pageTitle}
     </div>
   )
 }
@@ -74,6 +110,17 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <AuthProvider>
+        {/* Skip-to-content link */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md"
+        >
+          Preskoči na sadržaj
+        </a>
+
+        {/* Route announcer za screen readere */}
+        <RouteAnnouncer />
+
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
@@ -112,6 +159,17 @@ createRoot(document.getElementById('root')!).render(
           {/* Legacy */}
           <Route path="/evisitor" element={
             <ProtectedRoute><EVisitorCheckIn /></ProtectedRoute>
+          } />
+
+          {/* 404 catch-all */}
+          <Route path="*" element={
+            <div className="flex items-center justify-center h-screen">
+              <div className="text-center">
+                <h1 className="text-4xl font-bold text-gray-800">404</h1>
+                <p className="text-gray-500 mt-2">Stranica nije pronađena</p>
+                <a href="/" className="mt-4 inline-block text-blue-600 hover:underline">Natrag na početnu</a>
+              </div>
+            </div>
           } />
         </Routes>
       </AuthProvider>

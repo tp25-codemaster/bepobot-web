@@ -1,46 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
+import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-
-interface ReservationRow {
-  id: string
-  tourist_name: string | null
-  tourist_surname: string | null
-  gender: string | null
-  date_of_birth: string | null
-  document_type: string | null
-  document_number: string | null
-  citizenship: string | null
-  city_of_residence: string | null
-  residence_address: string | null
-  guest_email: string | null
-  guest_phone: string | null
-  check_in: string | null
-  check_out: string | null
-  apartment_id: string | null
-  completed_at: string | null
-  evisitor_checked_in_at: string | null
-  created_at: string
-  apartments?: { name: string } | null
-}
-
-interface GuestAggregate {
-  key: string
-  name: string
-  surname: string
-  email: string | null
-  phone: string | null
-  citizenship: string | null
-  city: string | null
-  dateOfBirth: string | null
-  documentNumber: string | null
-  stays: ReservationRow[]
-  totalStays: number
-  lastStay: string | null
-  totalNights: number
-}
+import type { ReservationRow, GuestAggregate } from '../../types/index'
+import { formatDate, nights } from '../../lib/dateUtils'
 
 const COUNTRY_FLAGS: Record<string, string> = {
   HRV: '🇭🇷',
@@ -56,23 +21,6 @@ const COUNTRY_FLAGS: Record<string, string> = {
   USA: '🇺🇸',
 }
 
-function nights(a: string | null, b: string | null): number {
-  if (!a || !b) return 0
-  const d1 = new Date(a)
-  const d2 = new Date(b)
-  return Math.max(0, Math.round((d2.getTime() - d1.getTime()) / 86400000))
-}
-
-function formatDate(s: string | null): string {
-  if (!s) return '-'
-  const d = new Date(s)
-  return d.toLocaleDateString('hr-HR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
-
 export default function GostiPage() {
   const { user, profile, session } = useAuth()
   const [rows, setRows] = useState<ReservationRow[]>([])
@@ -84,6 +32,8 @@ export default function GostiPage() {
   const [findingContacts, setFindingContacts] = useState(false)
   const [contactResult, setContactResult] = useState<string | null>(null)
   const [minStays, setMinStays] = useState(0)
+  const [confirmImport, setConfirmImport] = useState(false)
+  const [confirmFindContacts, setConfirmFindContacts] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -187,7 +137,7 @@ export default function GostiPage() {
 
   async function handleImport() {
     if (!session?.access_token) return
-    if (!confirm('Uvesti sve goste iz eVisitor povijesti? Ovo može potrajati.')) return
+    setConfirmImport(false)
     setImporting(true)
     setImportResult(null)
     try {
@@ -223,8 +173,7 @@ export default function GostiPage() {
 
   async function handleFindContacts() {
     if (!session?.access_token) return
-    const guestsWithoutEmail = guests.filter(g => !g.email).length
-    if (!confirm(`Pretražiti Gmail za email adrese ${guestsWithoutEmail} gostiju bez kontakta?`)) return
+    setConfirmFindContacts(false)
     setFindingContacts(true)
     setContactResult(null)
     try {
@@ -274,7 +223,7 @@ export default function GostiPage() {
                     Uvezi povijest gostiju iz eVisitor sustava
                   </div>
                   <button
-                    onClick={handleImport}
+                    onClick={() => setConfirmImport(true)}
                     disabled={importing}
                     className="flex-shrink-0 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
@@ -297,7 +246,7 @@ export default function GostiPage() {
                     {guestsWithoutEmail} gostiju bez emaila — pretraži Gmail
                   </div>
                   <button
-                    onClick={handleFindContacts}
+                    onClick={() => setConfirmFindContacts(true)}
                     disabled={findingContacts}
                     className="flex-shrink-0 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
@@ -372,9 +321,10 @@ export default function GostiPage() {
 
         {/* List */}
         {loading ? (
-          <div className="space-y-2">
-            <div className="h-20 bg-gray-100 rounded-xl animate-pulse" />
-            <div className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+          <div className="p-6 space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           search ? (
@@ -386,10 +336,10 @@ export default function GostiPage() {
           ) : (
             <EmptyState
               icon="🧳"
-              title="Jos nemate gostiju"
+              title="Još nemate gostiju"
               description={profile?.evisitor_connected
-                ? 'Uvezite povijest iz eVisitora ili cekajte da gost popuni self check-in formu.'
-                : 'Cim prvi gost popuni self check-in formu ili uvezete povijest iz eVisitora, pojavit ce se ovdje.'}
+                ? 'Uvezite povijest iz eVisitora ili čekajte da gost popuni self check-in formu.'
+                : 'Čim prvi gost popuni self check-in formu ili uvezete povijest iz eVisitora, pojavit će se ovdje.'}
             />
           )
         ) : (
@@ -411,6 +361,24 @@ export default function GostiPage() {
           onClose={() => setSelected(null)}
         />
       )}
+
+      <ConfirmModal
+        open={confirmImport}
+        title="Uvoz iz eVisitora"
+        message="Uvesti sve goste iz eVisitor povijesti? Ovo može potrajati nekoliko minuta."
+        confirmLabel="Uvezi"
+        onConfirm={handleImport}
+        onCancel={() => setConfirmImport(false)}
+      />
+
+      <ConfirmModal
+        open={confirmFindContacts}
+        title="Pretraga kontakata"
+        message={`Pretražiti Gmail za email adrese ${guestsWithoutEmail} gostiju bez kontakta?`}
+        confirmLabel="Pretraži"
+        onConfirm={handleFindContacts}
+        onCancel={() => setConfirmFindContacts(false)}
+      />
     </AppShell>
   )
 }

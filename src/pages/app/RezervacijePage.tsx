@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
+import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
 import {
@@ -8,31 +9,8 @@ import {
   checkInReservation,
   formatCheckInError,
 } from '../../lib/reservations'
-
-interface Apartment {
-  id: string
-  name: string
-}
-
-interface Reservation {
-  id: string
-  apartment_id: string
-  guest_name: string
-  guest_contact: string | null
-  guests_count: number
-  check_in: string
-  check_out: string
-  status: 'confirmed' | 'cancelled' | 'completed'
-  notes: string | null
-  token: string | null
-  tourist_name: string | null
-  tourist_surname: string | null
-  completed_at: string | null
-  evisitor_checked_in_at: string | null
-  evisitor_tourist_id: string | null
-  evisitor_error: string | null
-  apartments?: { name: string }
-}
+import type { Apartment, Reservation } from '../../types/index'
+import { formatDate, nights } from '../../lib/dateUtils'
 
 const EMPTY: Omit<Reservation, 'id' | 'apartments'> = {
   apartment_id: '',
@@ -60,6 +38,7 @@ export default function RezervacijePage() {
   const [editing, setEditing] = useState<(Reservation & { isNew?: boolean }) | null>(null)
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const formRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to edit form when it opens (so user doesn't lose it at bottom
@@ -140,19 +119,9 @@ export default function RezervacijePage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Obrisati rezervaciju?')) return
     await supabase.from('reservations').delete().eq('id', id)
+    setDeleteConfirmId(null)
     await loadData()
-  }
-
-  function formatDate(d: string) {
-    return new Date(d + 'T00:00:00').toLocaleDateString('hr-HR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  }
-
-  function nights(checkIn: string, checkOut: string) {
-    const d1 = new Date(checkIn)
-    const d2 = new Date(checkOut)
-    return Math.round((d2.getTime() - d1.getTime()) / 86400000)
   }
 
   function getAptName(aptId: string) {
@@ -164,7 +133,7 @@ export default function RezervacijePage() {
     cancelled: 'bg-red-100 text-red-700',
     completed: 'bg-gray-100 text-gray-600',
   }
-  const statusLabels = { confirmed: 'Potvrđeno', cancelled: 'Otkazano', completed: 'Zavrseno' }
+  const statusLabels = { confirmed: 'Potvrđeno', cancelled: 'Otkazano', completed: 'Završeno' }
 
   return (
     <AppShell title="Rezervacije">
@@ -179,26 +148,30 @@ export default function RezervacijePage() {
                 filter === f ? 'bg-white text-text shadow-sm' : 'text-text-muted'
               }`}
             >
-              {f === 'upcoming' ? 'Nadolazece' : f === 'past' ? 'Prosle' : 'Sve'}
+              {f === 'upcoming' ? 'Nadolazeće' : f === 'past' ? 'Prošle' : 'Sve'}
             </button>
           ))}
         </div>
 
         {loading ? (
-          <div className="text-center text-text-muted py-8">Ucitavanje...</div>
+          <div className="p-6 space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
         ) : (
           <>
             {filtered.map(r => (
               <ReservationCard
                 key={r.id}
                 r={r}
-                apartmentName={r.apartments?.name || getAptName(r.apartment_id)}
+                apartmentName={r.apartments?.name || getAptName(r.apartment_id ?? '')}
                 formatDate={formatDate}
                 nights={nights}
                 statusColors={statusColors}
                 statusLabels={statusLabels}
                 onEdit={() => setEditing({ ...r })}
-                onDelete={() => handleDelete(r.id)}
+                onDelete={() => setDeleteConfirmId(r.id)}
                 onRefresh={loadData}
               />
             ))}
@@ -206,10 +179,10 @@ export default function RezervacijePage() {
             {filtered.length === 0 && !editing && (
               <EmptyState
                 icon="📅"
-                title={filter === 'upcoming' ? 'Nema nadolazecih rezervacija' : filter === 'past' ? 'Nema proslih rezervacija' : 'Jos nemate rezervacija'}
+                title={filter === 'upcoming' ? 'Nema nadolazećih rezervacija' : filter === 'past' ? 'Nema prošlih rezervacija' : 'Još nemate rezervacija'}
                 description={apartments.length === 0
-                  ? 'Prvo dodajte apartman u bocnom meniju, pa se vratite ovdje.'
-                  : 'Dodajte rucno ili pustite BepoBota da automatski hvata booking emailove iz Gmaila.'}
+                  ? 'Prvo dodajte apartman u bočnom meniju, pa se vratite ovdje.'
+                  : 'Dodajte ručno ili pustite BepoBota da automatski hvata booking emailove iz Gmaila.'}
               />
             )}
 
@@ -316,7 +289,7 @@ export default function RezervacijePage() {
                 className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary outline-none bg-white"
               >
                 <option value="confirmed">Potvrđeno</option>
-                <option value="completed">Zavrseno</option>
+                <option value="completed">Završeno</option>
                 <option value="cancelled">Otkazano</option>
               </select>
             )}
@@ -347,6 +320,16 @@ export default function RezervacijePage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={deleteConfirmId !== null}
+        title="Obriši rezervaciju"
+        message="Jesi li siguran/a da želiš obrisati ovu rezervaciju? Ova radnja se ne može poništiti."
+        confirmLabel="Obriši"
+        onConfirm={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+        onCancel={() => setDeleteConfirmId(null)}
+        danger
+      />
     </AppShell>
   )
 }
@@ -447,7 +430,7 @@ function ReservationCard({
       </div>
       <div className="flex items-center gap-4 text-sm text-text-muted mb-2">
         <span>📅 {formatDate(r.check_in)} → {formatDate(r.check_out)}</span>
-        <span className="text-xs">({nights(r.check_in, r.check_out)} noci)</span>
+        <span className="text-xs">({nights(r.check_in, r.check_out)} noći)</span>
       </div>
       {r.notes && (
         <div className="text-xs text-text-muted bg-gray-50 rounded-lg p-2 mb-2">📝 {r.notes}</div>
@@ -534,7 +517,7 @@ function ReservationCard({
 
       <div className="flex gap-2 mt-3">
         <button onClick={onEdit} className="text-xs text-primary font-medium">Uredi</button>
-        <button onClick={onDelete} className="text-xs text-red-500 font-medium">Obrisi</button>
+        <button onClick={onDelete} className="text-xs text-red-500 font-medium">Obriši</button>
       </div>
     </div>
   )

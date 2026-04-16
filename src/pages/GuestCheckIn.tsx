@@ -229,7 +229,11 @@ export default function GuestCheckIn() {
       </div>
 
       {submitError && (
-        <div className="bg-red-50 border border-red-300 text-red-800 rounded-xl p-3 mb-4 text-sm">
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="bg-red-50 border border-red-300 text-red-800 rounded-xl p-3 mb-4 text-sm"
+        >
           {submitError}
         </div>
       )}
@@ -242,6 +246,7 @@ export default function GuestCheckIn() {
               <input
                 type="text"
                 required
+                aria-required="true"
                 value={form.tourist_name}
                 onChange={(e) => update('tourist_name', e.target.value)}
                 className={inputCls}
@@ -251,6 +256,7 @@ export default function GuestCheckIn() {
               <input
                 type="text"
                 required
+                aria-required="true"
                 value={form.tourist_surname}
                 onChange={(e) => update('tourist_surname', e.target.value)}
                 className={inputCls}
@@ -261,6 +267,7 @@ export default function GuestCheckIn() {
             <Field label="Spol *">
               <select
                 value={form.gender}
+                aria-required="true"
                 onChange={(e) =>
                   update('gender', e.target.value as 'muški' | 'ženski')
                 }
@@ -274,6 +281,7 @@ export default function GuestCheckIn() {
               <input
                 type="date"
                 required
+                aria-required="true"
                 value={form.date_of_birth}
                 onChange={(e) => update('date_of_birth', e.target.value)}
                 className={inputCls}
@@ -288,6 +296,7 @@ export default function GuestCheckIn() {
             <Field label="Tip dokumenta *">
               <select
                 value={form.document_type}
+                aria-required="true"
                 onChange={(e) => update('document_type', e.target.value)}
                 className={inputCls}
               >
@@ -302,6 +311,7 @@ export default function GuestCheckIn() {
               <input
                 type="text"
                 required
+                aria-required="true"
                 value={form.document_number}
                 onChange={(e) => update('document_number', e.target.value)}
                 className={inputCls}
@@ -315,6 +325,7 @@ export default function GuestCheckIn() {
           <Field label="Državljanstvo *">
             <select
               value={form.citizenship}
+              aria-required="true"
               onChange={(e) => update('citizenship', e.target.value)}
               className={inputCls}
             >
@@ -330,6 +341,7 @@ export default function GuestCheckIn() {
               <input
                 type="text"
                 required
+                aria-required="true"
                 value={form.city_of_residence}
                 onChange={(e) => update('city_of_residence', e.target.value)}
                 className={inputCls}

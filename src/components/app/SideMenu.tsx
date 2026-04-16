@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -8,7 +8,7 @@ interface SideMenuProps {
 }
 
 const menuItems = [
-  { path: '/app', icon: '🏠', label: 'Pocetna' },
+  { path: '/app', icon: '🏠', label: 'Početna' },
   { path: '/app/chat', icon: '💬', label: 'Chat' },
   { path: '/app/rezervacije', icon: '📋', label: 'Rezervacije' },
   { path: '/app/kalendar', icon: '📅', label: 'Kalendar' },
@@ -19,9 +19,13 @@ const menuItems = [
   { path: '/app/postavke', icon: '⚙️', label: 'Postavke' },
 ]
 
+const FOCUSABLE_SELECTORS =
+  'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 export default function SideMenu({ open, onClose }: SideMenuProps) {
   const location = useLocation()
   const { user, profile, isDemo } = useAuth()
+  const drawerRef = useRef<HTMLDivElement>(null)
 
   // Close on escape
   useEffect(() => {
@@ -39,11 +43,49 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
     return () => { document.body.style.overflow = '' }
   }, [open])
 
+  // Focus trap — Tab/Shift+Tab ostaje unutar drawera
+  useEffect(() => {
+    if (!open) return
+    const drawer = drawerRef.current
+    if (!drawer) return
+
+    // Fokusiraj prvi element u draweru kad se otvori
+    const focusable = Array.from(
+      drawer.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS)
+    )
+    focusable[0]?.focus()
+
+    function handleTab(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return
+      const els = Array.from(
+        drawer!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS)
+      ).filter(el => !el.hasAttribute('disabled'))
+      if (els.length === 0) return
+      const first = els[0]
+      const last = els[els.length - 1]
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleTab)
+    return () => window.removeEventListener('keydown', handleTab)
+  }, [open])
+
   return (
     <>
       {/* Backdrop */}
       <div
         onClick={onClose}
+        aria-hidden="true"
         className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-300 ${
           open ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
@@ -51,13 +93,18 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
 
       {/* Drawer */}
       <div
+        id="side-menu"
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Izbornik"
         className={`fixed top-0 left-0 bottom-0 w-72 bg-white z-50 shadow-2xl transition-transform duration-300 ease-out flex flex-col ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* User info */}
         <div className="bg-primary p-5 pt-[calc(env(safe-area-inset-top)+20px)]">
-          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mb-3">
+          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mb-3" aria-hidden="true">
             <span className="text-white text-xl font-bold">
               {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'D'}
             </span>
@@ -76,7 +123,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
         </div>
 
         {/* Menu items */}
-        <nav className="flex-1 py-2 overflow-y-auto">
+        <nav aria-label="Glavna navigacija" className="flex-1 py-2 overflow-y-auto">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path
             return (
@@ -84,13 +131,14 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                 key={item.path}
                 to={item.path}
                 onClick={onClose}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-primary/10 text-primary border-r-3 border-primary'
                     : 'text-text hover:bg-gray-50'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <span className="text-lg" aria-hidden="true">{item.icon}</span>
                 {item.label}
               </Link>
             )
@@ -103,8 +151,8 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
             href="mailto:info@bepobot.hr"
             className="flex items-center gap-3 px-1 py-2 text-sm text-text-muted hover:text-primary transition-colors"
           >
-            <span className="text-lg">🆘</span>
-            Podrska
+            <span className="text-lg" aria-hidden="true">🆘</span>
+            Podrška
           </a>
         </div>
       </div>

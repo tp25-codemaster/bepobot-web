@@ -45,7 +45,9 @@ export default function PostavkePage() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       updateProfile({ gmail_connected: false, gmail_email: null } as any)
-    } catch {}
+    } catch (err) {
+      alert('Greška pri odspajanju Gmaila: ' + (err instanceof Error ? err.message : 'Nepoznata greška'))
+    }
     setDisconnecting(false)
   }
 
@@ -85,12 +87,12 @@ export default function PostavkePage() {
           </p>
           {gmailStatus === 'connected' && (
             <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-              Gmail uspjesno povezan!
+              Gmail uspješno povezan!
             </div>
           )}
           {gmailStatus === 'error' && (
             <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-              Greska pri povezivanju Gmaila. Pokusajte ponovo.
+              Greška pri povezivanju Gmaila. Pokušajte ponovo.
             </div>
           )}
           {profile?.gmail_connected ? (
@@ -124,18 +126,24 @@ export default function PostavkePage() {
           <div className="space-y-3">
             <ToggleRow label="Jutarnji pregled (08:00)" defaultOn />
             <ToggleRow label="Novi dolasci" defaultOn />
-            <ToggleRow label="Podsetnici za check-out" defaultOn={false} />
+            <ToggleRow label="Podsjetnici za check-out" defaultOn={false} />
           </div>
         </div>
 
         {/* Language */}
         <div className="bg-white rounded-xl border border-border p-4">
           <h3 className="font-semibold text-text mb-3">Jezik</h3>
-          <div className="flex gap-2">
-            <button className="flex-1 py-2 bg-primary text-white text-sm font-semibold rounded-lg">
+          <div className="flex gap-2" role="group" aria-label="Odabir jezika">
+            <button
+              className="flex-1 py-2 bg-primary text-white text-sm font-semibold rounded-lg"
+              aria-pressed="true"
+            >
               Hrvatski
             </button>
-            <button className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg">
+            <button
+              className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg"
+              aria-pressed="false"
+            >
               English
             </button>
           </div>
@@ -151,7 +159,7 @@ export default function PostavkePage() {
 
         {/* Version */}
         <p className="text-center text-xs text-text-muted">
-          BepoBot v0.1.0 · Powered by Noesiss
+          BepoBot v0.1.0 · Powered by Noēsiss
         </p>
       </div>
     </AppShell>
@@ -162,14 +170,17 @@ function ToggleRow({ label, defaultOn = false }: { label: string; defaultOn?: bo
   const [on, setOn] = useState(defaultOn)
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-text">{label}</span>
+      <span className="text-sm text-text" id={`toggle-label-${label.replace(/\s/g, '-')}`}>{label}</span>
       <button
         onClick={() => setOn(!on)}
+        role="switch"
+        aria-checked={on}
+        aria-labelledby={`toggle-label-${label.replace(/\s/g, '-')}`}
         className={`relative w-11 h-6 rounded-full transition-colors ${
           on ? 'bg-primary' : 'bg-gray-300'
         }`}
       >
-        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+        <div aria-hidden="true" className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
           on ? 'translate-x-5.5' : 'translate-x-0.5'
         }`} />
       </button>

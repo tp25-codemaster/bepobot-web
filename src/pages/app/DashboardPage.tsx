@@ -8,43 +8,10 @@ import { useReservations, usePendingReservations, useGuestsWithoutEmailCount } f
 import ChatBubble from '../../components/chat/ChatBubble'
 import TypingIndicator from '../../components/chat/TypingIndicator'
 import { renderMarkdown } from '../../lib/markdown'
+import type { Reservation, PendingReservation } from '../../types/index'
+import { formatDateShort, nights, getGreeting } from '../../lib/dateUtils'
 
-interface Reservation {
-  id: string
-  guest_name: string
-  tourist_name: string | null
-  tourist_surname: string | null
-  guest_contact: string | null
-  check_in: string
-  check_out: string
-  status: string
-  guests_count: number
-  apartments: { name: string } | null
-}
-
-interface PendingRes {
-  id: string
-  guest_name: string
-  apartment_name_raw: string
-  check_in: string
-  check_out: string
-  platform: string
-}
-
-function formatDate(s: string): string {
-  return new Date(s).toLocaleDateString('hr-HR', { day: '2-digit', month: '2-digit' })
-}
-
-function nights(a: string, b: string): number {
-  return Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000))
-}
-
-function getGreeting(): string {
-  const h = new Date().getHours()
-  if (h < 12) return 'Dobro jutro'
-  if (h < 18) return 'Dobar dan'
-  return 'Dobra vecer'
-}
+type PendingRes = PendingReservation
 
 export default function DashboardPage() {
   const { profile } = useAuth()
@@ -151,7 +118,7 @@ export default function DashboardPage() {
   const firstName = profile?.full_name?.split(' ')[0] || 'korisnice'
 
   return (
-    <AppShell title="Pocetna">
+    <AppShell title="Početna">
       <div className="p-4 space-y-4 max-w-2xl mx-auto pb-20">
         {/* Greeting */}
         <div>
@@ -187,7 +154,7 @@ export default function DashboardPage() {
         {upcoming.length > 0 && (
           <div className="bg-white rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-text text-sm">Sljedeci dolasci</h2>
+              <h2 className="font-semibold text-text text-sm">Sljedeći dolasci</h2>
               <button onClick={() => navigate('/app/kalendar')} className="text-xs text-primary font-medium">
                 Kalendar →
               </button>
@@ -225,7 +192,7 @@ export default function DashboardPage() {
           <EmptyState
             icon="🏖️"
             title="Sve mirno"
-            description="Nema aktivnih rezervacija ni taskova. Uzivaj u miru!"
+            description="Nema aktivnih rezervacija ni taskova. Uživaj u miru!"
           />
         )}
 
@@ -249,7 +216,7 @@ export default function DashboardPage() {
               </ChatBubble>
             )) : (
               <div className="text-center text-xs text-text-muted py-4">
-                Pitaj me bilo sto o apartmanima...
+                Pitaj me bilo što o apartmanima...
               </div>
             )}
             {sending && <TypingIndicator />}
@@ -298,7 +265,7 @@ function GuestRow({ r, badge, badgeColor }: { r: Reservation; badge?: string; ba
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-text truncate">{r.guest_name}</div>
         <div className="text-xs text-text-muted">
-          {apt} · {formatDate(r.check_in)} → {formatDate(r.check_out)} ({n} noci)
+          {apt} · {formatDateShort(r.check_in)} → {formatDateShort(r.check_out)} ({n} noći)
         </div>
       </div>
       {badge && (
