@@ -38,6 +38,7 @@ export default function RezervacijePage() {
   const [editing, setEditing] = useState<(Reservation & { isNew?: boolean }) | null>(null)
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming')
+  const [search, setSearch] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const formRef = useRef<HTMLDivElement>(null)
 
@@ -87,7 +88,11 @@ export default function RezervacijePage() {
     if (filter === 'upcoming') return r.check_out >= today && r.status !== 'cancelled'
     if (filter === 'past') return r.check_out < today || r.status === 'completed'
     return true
-  })
+  }).filter(r =>
+    !search ||
+    r.guest_name.toLowerCase().includes(search.toLowerCase()) ||
+    (r.guest_contact || '').toLowerCase().includes(search.toLowerCase())
+  )
 
   async function handleSave() {
     if (!editing || !editing.guest_name.trim() || !editing.apartment_id || !editing.check_in || !editing.check_out) return
@@ -130,27 +135,52 @@ export default function RezervacijePage() {
 
   const statusColors = {
     confirmed: 'bg-green-100 text-green-700',
+    pending: 'bg-yellow-100 text-yellow-700',
     cancelled: 'bg-red-100 text-red-700',
     completed: 'bg-gray-100 text-gray-600',
   }
-  const statusLabels = { confirmed: 'Potvrđeno', cancelled: 'Otkazano', completed: 'Završeno' }
+  const statusLabels: Record<string, string> = { confirmed: 'Potvrđeno', pending: 'Na čekanju', cancelled: 'Otkazano', completed: 'Završeno' }
 
   return (
     <AppShell title="Rezervacije">
       <div className="p-4 space-y-3">
         {/* Filter tabs */}
-        <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+        <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
           {(['upcoming', 'past', 'all'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                filter === f ? 'bg-white text-text shadow-sm' : 'text-text-muted'
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                filter === f ? 'bg-white text-text shadow-sm' : 'text-text-muted hover:text-text'
               }`}
             >
               {f === 'upcoming' ? 'Nadolazeće' : f === 'past' ? 'Prošle' : 'Sve'}
             </button>
           ))}
+        </div>
+
+        {/* Search bar */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+            <svg className="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Pretraži goste..."
+            className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-border rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-text text-lg leading-none"
+            >
+              ×
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -416,24 +446,27 @@ function ReservationCard({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-border p-4">
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <div className="font-semibold text-text">{r.guest_name}</div>
-          <div className="text-xs text-text-muted">
+    <div className="bg-white rounded-2xl border border-border p-4 shadow-sm hover:shadow-md transition-all duration-200">
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0 flex-1 mr-3">
+          <div className="font-semibold text-text text-base leading-tight">{r.guest_name}</div>
+          <div className="text-xs text-text-muted mt-0.5">
             {apartmentName} · {r.guests_count} {r.guests_count === 1 ? 'gost' : 'gostiju'}
           </div>
         </div>
-        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[r.status]}`}>
-          {statusLabels[r.status]}
+        <span className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full ${statusColors[r.status] ?? 'bg-gray-100 text-gray-600'}`}>
+          {statusLabels[r.status] ?? r.status}
         </span>
       </div>
-      <div className="flex items-center gap-4 text-sm text-text-muted mb-2">
-        <span>📅 {formatDate(r.check_in)} → {formatDate(r.check_out)}</span>
-        <span className="text-xs">({nights(r.check_in, r.check_out)} noći)</span>
+      <div className="flex items-center gap-2 text-sm text-text-muted mb-2 bg-gray-50 rounded-xl px-3 py-2">
+        <span className="text-base">📅</span>
+        <span className="font-medium">{formatDate(r.check_in)}</span>
+        <span className="text-text-muted/50">→</span>
+        <span className="font-medium">{formatDate(r.check_out)}</span>
+        <span className="ml-auto text-xs bg-white border border-border rounded-lg px-2 py-0.5 font-semibold text-text">{nights(r.check_in, r.check_out)} noći</span>
       </div>
       {r.notes && (
-        <div className="text-xs text-text-muted bg-gray-50 rounded-lg p-2 mb-2">📝 {r.notes}</div>
+        <div className="text-xs text-text-muted bg-amber-50 border border-amber-100 rounded-xl p-2.5 mb-2">📝 {r.notes}</div>
       )}
 
       {/* Self-checkin section */}
@@ -515,9 +548,9 @@ function ReservationCard({
         )}
       </div>
 
-      <div className="flex gap-2 mt-3">
-        <button onClick={onEdit} className="text-xs text-primary font-medium">Uredi</button>
-        <button onClick={onDelete} className="text-xs text-red-500 font-medium">Obriši</button>
+      <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+        <button onClick={onEdit} className="flex-1 py-1.5 text-xs text-primary font-semibold bg-primary/5 hover:bg-primary/10 rounded-xl transition-colors">Uredi</button>
+        <button onClick={onDelete} className="flex-1 py-1.5 text-xs text-red-500 font-semibold bg-red-50 hover:bg-red-100 rounded-xl transition-colors">Obriši</button>
       </div>
     </div>
   )
