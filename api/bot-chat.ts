@@ -1,8 +1,9 @@
 // POST /api/bot-chat
 //
-// Anthropic API direktno (claude-haiku-4-5) s prompt cachingom na system promptu.
-// Zamjena za OpenRouter — ušteduje 5% markup + eliminira extra network hop.
-// Tool-calling flow je jednak, format poruka prilagođen Anthropic API-ju.
+// Main chat endpoint — prima user message, poziva Claude Haiku preko OpenRoutera
+// sa injected reservations kontekstom i tool definicijama. Ako LLM odluci pozvati
+// tool, izvrsimo ga server-side (user-scoped supabase, RLS enforced) i napravimo
+// drugi LLM call da dobijemo natural-language rezultat za korisnika.
 
 import {
   getUserSupabase,
@@ -33,70 +34,58 @@ interface VercelResponse {
   end: () => void
 }
 
-// Anthropic content block types
-interface TextBlock {
-  type: 'text'
-  text: string
-}
-interface ToolUseBlock {
-  type: 'tool_use'
-  id: string
-  name: string
-  input: Record<string, unknown>
-}
-interface ToolResultBlock {
-  type: 'tool_result'
-  tool_use_id: string
-  content: string
-}
-type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock
-
-interface AnthropicMessage {
-  role: 'user' | 'assistant'
-  content: string | ContentBlock[]
-}
-interface AnthropicResponse {
-  content: ContentBlock[]
-  stop_reason: 'end_turn' | 'tool_use' | string
-  error?: { type: string; message: string }
+interface OpenRouterMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string | null
+  tool_calls?: Array<{
+    id: string
+    type: 'function'
+    function: { name: string; arguments: string }
+  }>
+  tool_call_id?: string
 }
 
-// BOT_TOOLS is OpenAI format — convert to Anthropic format (input_schema not parameters)
-function toAnthropicTools(tools: Array<{
-  type: string
-  function: { name: string; description: string; parameters: Record<string, unknown> }
-}>): Array<{ name: string; description: string; input_schema: Record<string, unknown> }> {
-  return tools.map((t) => ({
-    name: t.function.name,
-    description: t.function.description,
-    input_schema: t.function.parameters,
-  }))
+interface OpenRouterResponse {
+  choices?: Array<{
+    message: OpenRouterMessage
+    finish_reason?: string
+  }>
+  error?: { message?: string }
 }
 
-const MODEL = 'claude-haiku-4-5'
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+const MODEL = 'anthropic/claude-haiku-4.5'
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
-async function callAnthropic(payload: Record<string, unknown>): Promise<AnthropicResponse> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
-  const res = await fetch(ANTHROPIC_URL, {
+async function callOpenRouter(
+  payload: Record<string, unknown>
+): Promise<OpenRouterResponse> {
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) {
+    throw new Error('OPENROUTER_API_KEY not configured')
+  }
+  const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://bepobot-web-bepo1.vercel.app',
+      'X-Title': 'BepoBot',
     },
     body: JSON.stringify(payload),
   })
-  const data = (await res.json()) as AnthropicResponse
+  const data = (await res.json()) as OpenRouterResponse
   if (!res.ok) {
-    throw new Error('Anthropic error: ' + (data.error?.message || `HTTP ${res.status}`))
+    throw new Error(
+      'OpenRouter error: ' + (data.error?.message || `HTTP ${res.status}`)
+    )
   }
   return data
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   setCorsHeaders(res)
 
   if (req.method === 'OPTIONS') {
@@ -108,6 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // JWT auth via Supabase
   const authHeader = (req.headers.authorization ||
     req.headers.Authorization) as string | undefined
   const supabase = getUserSupabase(authHeader)
@@ -121,6 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // Rate limit: 30 msgs/min per user
   const rl = await checkRateLimit('bot-chat', user.id, LIMITS.BOT_CHAT)
   if (!rl.allowed) {
     res.setHeader('X-RateLimit-Remaining', String(rl.remaining))
@@ -132,6 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // Parse body
   let body: {
     message?: string
     history?: Array<{ role: 'user' | 'assistant'; content: string }>
@@ -154,131 +146,171 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // 1. Fetch reservations (user-scoped, RLS) + pending (admin, RLS-bypass)
+    // pending_reservations nema user RLS policy pa koristimo admin klijent.
+    // Sigurno je jer filtriramo po user.id i server verificira vlasnistvo.
     const adminSupabase = getSupabaseAdmin()
     const [reservations, pending] = await Promise.all([
       fetchReservationsForContext(supabase, user.id),
       fetchPendingReservationsForContext(adminSupabase, user.id),
     ])
 
+    // 2. Build system prompt
     const fullName = (user.user_metadata?.full_name as string) || null
     const systemPrompt = buildSystemPrompt(reservations, fullName, pending)
-    const anthropicTools = toAnthropicTools(
-      BOT_TOOLS as Array<{ type: string; function: { name: string; description: string; parameters: Record<string, unknown> } }>
-    )
 
-    // Build message history for this conversation
-    const messages: AnthropicMessage[] = [
+    // 3. First LLM call with tools
+    const baseMessages: OpenRouterMessage[] = [
+      { role: 'system', content: systemPrompt },
       ...(body.history || []).slice(-10).map((m) => ({
         role: m.role,
         content: m.content,
       })),
-      { role: 'user' as const, content: userMessage },
+      { role: 'user', content: userMessage },
     ]
 
-    // First call — with tools, system prompt cached after first request
-    const firstResponse = await callAnthropic({
+    const firstResponse = await callOpenRouter({
       model: MODEL,
+      messages: baseMessages,
+      tools: BOT_TOOLS,
       max_tokens: 512,
       temperature: 0.3,
-      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-      messages,
-      tools: anthropicTools,
     })
 
-    const toolUseBlocks = firstResponse.content.filter(
-      (c): c is ToolUseBlock => c.type === 'tool_use'
-    )
+    const choice = firstResponse.choices?.[0]
+    if (!choice) {
+      res
+        .status(502)
+        .json({ success: false, error: 'LLM nije vratio odgovor' })
+      return
+    }
 
-    // No tool call — return text directly
-    if (firstResponse.stop_reason !== 'tool_use' || toolUseBlocks.length === 0) {
-      const textBlock = firstResponse.content.find((c): c is TextBlock => c.type === 'text')
+    const toolCalls = choice.message.tool_calls || []
+
+    // No tool call — direct text reply
+    if (toolCalls.length === 0) {
       res.status(200).json({
         success: true,
-        reply: textBlock?.text || '',
+        reply: choice.message.content || '',
         toolsExecuted: [],
       })
       return
     }
 
-    // Execute tools
-    const toolResults: Array<{ toolUseId: string; name: string; result: unknown }> = []
-    for (const call of toolUseBlocks) {
-      const args = call.input || {}
+    // 4. Execute tool(s)
+    const toolResults: Array<{
+      tool_call_id: string
+      name: string
+      result: unknown
+    }> = []
+    for (const call of toolCalls) {
+      let args: Record<string, unknown> = {}
+      try {
+        args =
+          typeof call.function.arguments === 'string'
+            ? JSON.parse(call.function.arguments)
+            : (call.function.arguments as Record<string, unknown>)
+      } catch {
+        /* ignore */
+      }
 
-      if (call.name === 'check_in_reservation') {
+      if (call.function.name === 'check_in_reservation') {
         const reservationId = args.reservation_id as string | undefined
         if (!reservationId) {
           toolResults.push({
-            toolUseId: call.id,
-            name: call.name,
+            tool_call_id: call.id,
+            name: call.function.name,
             result: { success: false, error: 'reservation_id missing' },
           })
           continue
         }
         const result = await executeCheckInReservation(
-          supabase, user.id, reservationId, args.test_mode === true
+          supabase,
+          user.id,
+          reservationId,
+          args.test_mode === true
         )
-        toolResults.push({ toolUseId: call.id, name: call.name, result })
-      } else if (call.name === 'confirm_pending_reservation') {
+        toolResults.push({
+          tool_call_id: call.id,
+          name: call.function.name,
+          result,
+        })
+      } else if (call.function.name === 'confirm_pending_reservation') {
         const pendingId = args.pending_id as string | undefined
         if (!pendingId) {
           toolResults.push({
-            toolUseId: call.id,
-            name: call.name,
+            tool_call_id: call.id,
+            name: call.function.name,
             result: { success: false, error: 'pending_id missing' },
           })
           continue
         }
-        const result = await executeConfirmPendingReservation(adminSupabase, user.id, pendingId)
-        toolResults.push({ toolUseId: call.id, name: call.name, result })
-      } else if (call.name === 'reject_pending_reservation') {
+        const result = await executeConfirmPendingReservation(
+          adminSupabase,
+          user.id,
+          pendingId
+        )
+        toolResults.push({
+          tool_call_id: call.id,
+          name: call.function.name,
+          result,
+        })
+      } else if (call.function.name === 'reject_pending_reservation') {
         const pendingId = args.pending_id as string | undefined
         if (!pendingId) {
           toolResults.push({
-            toolUseId: call.id,
-            name: call.name,
+            tool_call_id: call.id,
+            name: call.function.name,
             result: { success: false, error: 'pending_id missing' },
           })
           continue
         }
-        const result = await executeRejectPendingReservation(adminSupabase, user.id, pendingId)
-        toolResults.push({ toolUseId: call.id, name: call.name, result })
+        const result = await executeRejectPendingReservation(
+          adminSupabase,
+          user.id,
+          pendingId
+        )
+        toolResults.push({
+          tool_call_id: call.id,
+          name: call.function.name,
+          result,
+        })
       } else {
         toolResults.push({
-          toolUseId: call.id,
-          name: call.name,
+          tool_call_id: call.id,
+          name: call.function.name,
           result: { success: false, error: 'Unknown tool' },
         })
       }
     }
 
-    // Second call — assistant turn with tool_use blocks + user turn with tool_results
-    const messagesWithResults: AnthropicMessage[] = [
-      ...messages,
-      { role: 'assistant', content: firstResponse.content },
+    // 5. Second LLM call with tool results for natural-language reply
+    const messagesWithResults: OpenRouterMessage[] = [
+      ...baseMessages,
       {
-        role: 'user',
-        content: toolResults.map((tr) => ({
-          type: 'tool_result' as const,
-          tool_use_id: tr.toolUseId,
-          content: JSON.stringify(tr.result),
-        })),
+        role: 'assistant',
+        content: choice.message.content,
+        tool_calls: choice.message.tool_calls,
       },
+      ...toolResults.map((tr) => ({
+        role: 'tool' as const,
+        content: JSON.stringify(tr.result),
+        tool_call_id: tr.tool_call_id,
+      })),
     ]
 
-    const secondResponse = await callAnthropic({
+    const secondResponse = await callOpenRouter({
       model: MODEL,
+      messages: messagesWithResults,
       max_tokens: 512,
       temperature: 0.3,
-      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-      messages: messagesWithResults,
     })
 
-    const finalText = secondResponse.content.find((c): c is TextBlock => c.type === 'text')
+    const finalMessage = secondResponse.choices?.[0]?.message.content || ''
 
     res.status(200).json({
       success: true,
-      reply: finalText?.text || '',
+      reply: finalMessage,
       toolsExecuted: toolResults.map((tr) => tr.name),
     })
   } catch (e) {
