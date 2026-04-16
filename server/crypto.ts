@@ -45,6 +45,15 @@ export function encrypt(plaintext: string): string {
   return Buffer.concat([iv, tag, encrypted]).toString('base64')
 }
 
+export function safeDecrypt(payload: string | null | undefined): string {
+  if (!payload) return ''
+  try {
+    return decrypt(payload)
+  } catch {
+    return payload // fallback: vrati plaintext ako nije enkriptiran (legacy)
+  }
+}
+
 export function decrypt(payload: string): string {
   const key = getKey()
   const buf = Buffer.from(payload, 'base64')
