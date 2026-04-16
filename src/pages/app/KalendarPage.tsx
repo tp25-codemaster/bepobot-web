@@ -174,25 +174,25 @@ export default function KalendarPage() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={viewMode === 'month' ? goToPrevMonth : goToPrevWeek}
-            className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-xl text-gray-500 text-xl font-light leading-none transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 text-xl font-light leading-none"
           >
             ‹
           </button>
-          <h2 className="text-base font-bold text-gray-900 tracking-tight">
+          <h2 className="text-base font-semibold text-gray-900">
             {headerLabel}
           </h2>
           <button
             onClick={viewMode === 'month' ? goToNextMonth : goToNextWeek}
-            className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-xl text-gray-500 text-xl font-light leading-none transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 text-xl font-light leading-none"
           >
             ›
           </button>
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 mb-1">
+        <div className="grid grid-cols-7 gap-1 mb-1">
           {DAYS.map(d => (
-            <div key={d} className="text-center text-xs font-semibold text-gray-400 py-1.5 tracking-wide uppercase">
+            <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">
               {d}
             </div>
           ))}
@@ -200,14 +200,14 @@ export default function KalendarPage() {
 
         {/* Calendar grid — swipeable */}
         <div
-          className="grid grid-cols-7 select-none border-l border-t border-gray-100 rounded-xl overflow-hidden shadow-sm"
+          className="grid grid-cols-7 gap-1 select-none"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
           {viewMode === 'month' ? (
             <>
               {Array.from({ length: startOffset }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-[76px] border-r border-b border-gray-100 bg-gray-50/60" />
+                <div key={`empty-${i}`} className="min-h-[64px]" />
               ))}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1
@@ -216,14 +216,14 @@ export default function KalendarPage() {
                 return (
                   <div
                     key={day}
-                    className={`min-h-[76px] border-r border-b border-gray-100 p-1.5 transition-colors ${
-                      todayDay ? 'bg-blue-50' : 'hover:bg-gray-50/80'
+                    className={`min-h-[64px] rounded-lg p-1 transition-colors ${
+                      todayDay ? 'bg-blue-50 ring-1 ring-blue-400' : 'hover:bg-gray-50'
                     }`}
                   >
                     {/* Day number */}
-                    <div className="flex justify-center mb-1">
+                    <div className="flex justify-center mb-0.5">
                       {todayDay ? (
-                        <span className="flex items-center justify-center w-7 h-7 bg-blue-600 text-white rounded-full font-bold text-sm shadow-sm">
+                        <span className="flex items-center justify-center w-7 h-7 bg-blue-600 text-white rounded-full font-bold text-sm">
                           {day}
                         </span>
                       ) : (
@@ -237,14 +237,14 @@ export default function KalendarPage() {
                       <button
                         key={r.id}
                         onClick={() => setSelectedReservation(r)}
-                        className={`w-full truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight mb-0.5 text-left transition-all hover:opacity-90 active:scale-95 ${statusClasses(r.status)}`}
+                        className={`w-full truncate rounded border px-1 text-xs font-medium leading-tight mb-0.5 text-left transition-opacity hover:opacity-80 active:opacity-60 ${statusClasses(r.status)}`}
                         title={`${r.guest_name} — ${r.apartments?.name}`}
                       >
                         {r.guest_name.split(' ')[0]}
                       </button>
                     ))}
                     {dayRes.length > 2 && (
-                      <div className="text-[10px] text-gray-400 text-center font-medium">+{dayRes.length - 2}</div>
+                      <div className="text-[10px] text-gray-400 text-center">+{dayRes.length - 2}</div>
                     )}
                   </div>
                 )
@@ -258,13 +258,13 @@ export default function KalendarPage() {
               return (
                 <div
                   key={date.toISOString()}
-                  className={`min-h-[76px] border-r border-b border-gray-100 p-1.5 transition-colors ${
-                    todayDay ? 'bg-blue-50' : 'hover:bg-gray-50/80'
+                  className={`min-h-[64px] rounded-lg p-1 transition-colors ${
+                    todayDay ? 'bg-blue-50 ring-1 ring-blue-400' : 'hover:bg-gray-50'
                   }`}
                 >
-                  <div className="flex justify-center mb-1">
+                  <div className="flex justify-center mb-0.5">
                     {todayDay ? (
-                      <span className="flex items-center justify-center w-7 h-7 bg-blue-600 text-white rounded-full font-bold text-sm shadow-sm">
+                      <span className="flex items-center justify-center w-7 h-7 bg-blue-600 text-white rounded-full font-bold text-sm">
                         {date.getDate()}
                       </span>
                     ) : (
@@ -277,14 +277,14 @@ export default function KalendarPage() {
                     <button
                       key={r.id}
                       onClick={() => setSelectedReservation(r)}
-                      className={`w-full truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight mb-0.5 text-left transition-all hover:opacity-90 active:scale-95 ${statusClasses(r.status)}`}
+                      className={`w-full truncate rounded border px-1 text-xs font-medium leading-tight mb-0.5 text-left transition-opacity hover:opacity-80 active:opacity-60 ${statusClasses(r.status)}`}
                       title={`${r.guest_name} — ${r.apartments?.name}`}
                     >
                       {r.guest_name.split(' ')[0]}
                     </button>
                   ))}
                   {dayRes.length > 3 && (
-                    <div className="text-[10px] text-gray-400 text-center font-medium">+{dayRes.length - 3}</div>
+                    <div className="text-[10px] text-gray-400 text-center">+{dayRes.length - 3}</div>
                   )}
                 </div>
               )
@@ -295,13 +295,12 @@ export default function KalendarPage() {
         {/* Status legend */}
         <div className="mt-4 flex flex-wrap gap-2">
           {[
-            { label: 'Potvrđena', dot: 'bg-green-500', cls: 'bg-green-50 text-green-800' },
-            { label: 'Na čekanju', dot: 'bg-yellow-500', cls: 'bg-yellow-50 text-yellow-800' },
-            { label: 'Otkazana', dot: 'bg-red-500', cls: 'bg-red-50 text-red-800' },
-            { label: 'Završena', dot: 'bg-gray-400', cls: 'bg-gray-50 text-gray-600' },
-          ].map(({ label, dot, cls }) => (
-            <div key={label} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold ${cls}`}>
-              <span className={`w-2 h-2 rounded-full ${dot}`} />
+            { label: 'Potvrđena', cls: 'bg-green-100 border-green-400 text-green-800' },
+            { label: 'Na čekanju', cls: 'bg-yellow-100 border-yellow-400 text-yellow-800' },
+            { label: 'Otkazana', cls: 'bg-red-100 border-red-400 text-red-800' },
+            { label: 'Završena', cls: 'bg-gray-100 border-gray-400 text-gray-600' },
+          ].map(({ label, cls }) => (
+            <div key={label} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${cls}`}>
               {label}
             </div>
           ))}
@@ -310,7 +309,7 @@ export default function KalendarPage() {
         {/* This month's reservations list */}
         {reservations.length > 0 && (
           <div className="mt-5 space-y-2">
-            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+            <h3 className="text-sm font-semibold text-gray-800">
               {viewMode === 'month' ? 'Ovaj mjesec' : 'Ovaj tjedan'}
             </h3>
             {(viewMode === 'month' ? reservations : reservations.filter(r => {
@@ -323,16 +322,16 @@ export default function KalendarPage() {
               <button
                 key={r.id}
                 onClick={() => setSelectedReservation(r)}
-                className="w-full text-left bg-white rounded-2xl border border-gray-200 px-4 py-3 flex items-center justify-between hover:bg-gray-50 hover:shadow-sm active:bg-gray-100 transition-all shadow-sm"
+                className="w-full text-left bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors"
               >
-                <div className="min-w-0 flex-1 mr-3">
-                  <div className="text-sm font-semibold text-gray-900 truncate">{r.guest_name}</div>
-                  <div className="text-xs text-gray-400 mt-0.5 truncate">
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">{r.guest_name}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
                     {r.apartments?.name} · {new Date(r.check_in + 'T00:00:00').toLocaleDateString('hr-HR')} → {new Date(r.check_out + 'T00:00:00').toLocaleDateString('hr-HR')}
                   </div>
                 </div>
-                <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-xl ${statusClasses(r.status)}`}>
-                  {r.status === 'confirmed' ? 'Potvrđena' : r.status === 'pending' ? 'Na čekanju' : r.status === 'cancelled' ? 'Otkazana' : r.status === 'completed' ? 'Završena' : r.status}
+                <span className={`ml-3 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${statusClasses(r.status)}`}>
+                  {r.status}
                 </span>
               </button>
             ))}
