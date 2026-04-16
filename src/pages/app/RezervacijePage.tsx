@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
-import ErrorBanner from '../../components/app/ErrorBanner'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
@@ -11,7 +10,7 @@ import {
   formatCheckInError,
 } from '../../lib/reservations'
 import type { Apartment, Reservation } from '../../types/index'
-import { formatDate, formatDateRelative, nights } from '../../lib/dateUtils'
+import { formatDate, nights } from '../../lib/dateUtils'
 
 const EMPTY: Omit<Reservation, 'id' | 'apartments'> = {
   apartment_id: '',
@@ -36,7 +35,6 @@ export default function RezervacijePage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [apartments, setApartments] = useState<Apartment[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [editing, setEditing] = useState<(Reservation & { isNew?: boolean }) | null>(null)
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming')
@@ -66,7 +64,6 @@ export default function RezervacijePage() {
 
   async function loadData() {
     setLoading(true)
-    setLoadError(null)
     const [resResult, aptResult] = await Promise.all([
       supabase
         .from('reservations')
@@ -79,11 +76,6 @@ export default function RezervacijePage() {
         .eq('user_id', user!.id)
         .order('created_at', { ascending: true }),
     ])
-    if (resResult.error || aptResult.error) {
-      setLoadError('Greška pri učitavanju. Provjeri vezu i pokušaj ponovo.')
-      setLoading(false)
-      return
-    }
     setReservations((resResult.data as Reservation[]) || [])
     setApartments((aptResult.data as Apartment[]) || [])
     setLoading(false)
@@ -136,26 +128,16 @@ export default function RezervacijePage() {
     return apartments.find(a => a.id === aptId)?.name || 'Nepoznat'
   }
 
-  const statusColors: Record<string, string> = {
-    confirmed: 'bg-green-100 text-green-700 border border-green-200',
-    pending: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-    cancelled: 'bg-red-100 text-red-700 border border-red-200',
-    completed: 'bg-gray-100 text-gray-600 border border-gray-200',
+  const statusColors = {
+    confirmed: 'bg-green-100 text-green-700',
+    cancelled: 'bg-red-100 text-red-700',
+    completed: 'bg-gray-100 text-gray-600',
   }
-  const statusLabels: Record<string, string> = {
-    confirmed: 'Potvrđeno',
-    pending: 'Na čekanju',
-    cancelled: 'Otkazano',
-    completed: 'Završeno',
-  }
+  const statusLabels = { confirmed: 'Potvrđeno', cancelled: 'Otkazano', completed: 'Završeno' }
 
   return (
     <AppShell title="Rezervacije">
-      <div className="p-4 space-y-3 max-w-2xl mx-auto">
-        {loadError && (
-          <ErrorBanner message={loadError} onRetry={loadData} onDismiss={() => setLoadError(null)} />
-        )}
-
+      <div className="p-4 space-y-3">
         {/* Filter tabs */}
         <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
           {(['upcoming', 'past', 'all'] as const).map(f => (
@@ -307,7 +289,6 @@ export default function RezervacijePage() {
                 className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary outline-none bg-white"
               >
                 <option value="confirmed">Potvrđeno</option>
-                <option value="pending">Na čekanju</option>
                 <option value="completed">Završeno</option>
                 <option value="cancelled">Otkazano</option>
               </select>
@@ -331,7 +312,7 @@ export default function RezervacijePage() {
               </button>
               <button
                 onClick={() => setEditing(null)}
-                className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg"
               >
                 Odustani
               </button>
@@ -447,14 +428,8 @@ function ReservationCard({
           {statusLabels[r.status]}
         </span>
       </div>
-      <div className="flex items-center gap-2 text-sm text-text-muted mb-2 flex-wrap">
-        <span>
-          📅{' '}
-          <span className={formatDateRelative(r.check_in) === 'Danas' || formatDateRelative(r.check_in) === 'Sutra' ? 'text-amber-700 font-semibold' : ''}>
-            {formatDateRelative(r.check_in)}
-          </span>
-          {' '}→ {formatDate(r.check_out)}
-        </span>
+      <div className="flex items-center gap-4 text-sm text-text-muted mb-2">
+        <span>📅 {formatDate(r.check_in)} → {formatDate(r.check_out)}</span>
         <span className="text-xs">({nights(r.check_in, r.check_out)} noći)</span>
       </div>
       {r.notes && (
@@ -541,18 +516,8 @@ function ReservationCard({
       </div>
 
       <div className="flex gap-2 mt-3">
-        <button
-          onClick={onEdit}
-          className="text-xs text-primary font-medium px-2 py-1 rounded-md hover:bg-primary/10 active:bg-primary/20 transition-colors"
-        >
-          Uredi
-        </button>
-        <button
-          onClick={onDelete}
-          className="text-xs text-red-500 font-medium px-2 py-1 rounded-md hover:bg-red-50 active:bg-red-100 transition-colors"
-        >
-          Obriši
-        </button>
+        <button onClick={onEdit} className="text-xs text-primary font-medium">Uredi</button>
+        <button onClick={onDelete} className="text-xs text-red-500 font-medium">Obriši</button>
       </div>
     </div>
   )

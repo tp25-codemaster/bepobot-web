@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
-import EmptyState from '../../components/app/EmptyState'
-import ErrorBanner from '../../components/app/ErrorBanner'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
 import CalendarReservationModal from '../../components/CalendarReservationModal'
@@ -22,21 +20,10 @@ function statusClasses(status: string): string {
   return 'bg-blue-100 border-blue-400 text-blue-800'
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Potvrđena',
-  pending: 'Na čekanju',
-  cancelled: 'Otkazana',
-  canceled: 'Otkazana',
-  completed: 'Završena',
-  active: 'Aktivna',
-}
-
 export default function KalendarPage() {
   const { user } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [reservations, setReservations] = useState<Reservation[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [touchStart, setTouchStart] = useState<number | null>(null)
@@ -67,25 +54,17 @@ export default function KalendarPage() {
   }, [user, currentDate])
 
   async function loadReservations() {
-    setLoading(true)
-    setLoadError(null)
     const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('reservations')
       .select('id, guest_name, guest_contact, guests_count, check_in, check_out, status, notes, apartments(name)')
       .eq('user_id', user!.id)
       .lte('check_in', monthEnd)
       .gte('check_out', monthStart)
 
-    if (error) {
-      setLoadError('Greška pri učitavanju rezervacija. Provjeri vezu i pokušaj ponovo.')
-      setLoading(false)
-      return
-    }
     setReservations((data as unknown as Reservation[]) || [])
-    setLoading(false)
   }
 
   function getReservationsForDay(day: number, y = year, m = month): Reservation[] {
@@ -165,12 +144,6 @@ export default function KalendarPage() {
       />
 
       <div className="p-4">
-        {loadError && (
-          <div className="mb-4">
-            <ErrorBanner message={loadError} onRetry={loadReservations} onDismiss={() => setLoadError(null)} />
-          </div>
-        )}
-
         {/* View toggle */}
         <div className="flex items-center justify-center gap-1 mb-3">
           <div className="flex bg-gray-100 rounded-lg p-0.5">
@@ -225,18 +198,9 @@ export default function KalendarPage() {
           ))}
         </div>
 
-        {/* Loading skeleton overlay for calendar grid */}
-        {loading && (
-          <div className="grid grid-cols-7 gap-1 mb-4">
-            {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="min-h-[64px] bg-gray-100 rounded-lg animate-pulse" />
-            ))}
-          </div>
-        )}
-
         {/* Calendar grid — swipeable */}
         <div
-          className={`grid grid-cols-7 gap-1 select-none transition-opacity ${loading ? 'opacity-0 pointer-events-none absolute' : ''}`}
+          className="grid grid-cols-7 gap-1 select-none"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -367,19 +331,17 @@ export default function KalendarPage() {
                   </div>
                 </div>
                 <span className={`ml-3 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${statusClasses(r.status)}`}>
-                  {STATUS_LABELS[r.status] || r.status}
+                  {r.status}
                 </span>
               </button>
             ))}
           </div>
         )}
 
-        {reservations.length === 0 && !isDemoMode && !loading && !loadError && (
-          <EmptyState
-            icon="📅"
-            title="Nema rezervacija"
-            description="Nema rezervacija za ovaj period."
-          />
+        {reservations.length === 0 && !isDemoMode && (
+          <div className="mt-6 bg-gray-50 rounded-xl p-6 text-center">
+            <p className="text-gray-400 text-sm">Nema rezervacija za ovaj period.</p>
+          </div>
         )}
       </div>
     </AppShell>

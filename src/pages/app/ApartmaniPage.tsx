@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
-import ErrorBanner from '../../components/app/ErrorBanner'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
@@ -28,7 +27,6 @@ export default function ApartmaniPage() {
   const { user } = useAuth()
   const [apartments, setApartments] = useState<Apartment[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Apartment | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -46,17 +44,11 @@ export default function ApartmaniPage() {
 
   async function loadApartments() {
     setLoading(true)
-    setLoadError(null)
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('apartments')
       .select('*')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: true })
-    if (error) {
-      setLoadError('Greška pri učitavanju apartmana. Provjeri vezu i pokušaj ponovo.')
-      setLoading(false)
-      return
-    }
     setApartments((data as Apartment[]) || [])
     setLoading(false)
   }
@@ -125,11 +117,7 @@ export default function ApartmaniPage() {
 
   return (
     <AppShell title="Moji apartmani">
-      <div className="p-4 space-y-3 max-w-2xl mx-auto">
-        {loadError && (
-          <ErrorBanner message={loadError} onRetry={loadApartments} onDismiss={() => setLoadError(null)} />
-        )}
-
+      <div className="p-4 space-y-3">
         {loading ? (
           <div className="p-6 space-y-4">
             {[...Array(5)].map((_, i) => (
@@ -145,14 +133,14 @@ export default function ApartmaniPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditing({ ...apt })}
-                      className="text-xs text-primary font-medium px-2 py-1 rounded-md hover:bg-primary/10 active:bg-primary/20 transition-colors"
+                      className="text-xs text-primary font-medium"
                       aria-label={`Uredi apartman ${apt.name}`}
                     >
                       Uredi
                     </button>
                     <button
                       onClick={() => setDeleteConfirmId(apt.id)}
-                      className="text-xs text-red-500 font-medium px-2 py-1 rounded-md hover:bg-red-50 active:bg-red-100 transition-colors"
+                      className="text-xs text-red-500 font-medium"
                       aria-label={`Obriši apartman ${apt.name}`}
                     >
                       Obriši
@@ -316,7 +304,7 @@ export default function ApartmaniPage() {
               </button>
               <button
                 onClick={() => setEditing(null)}
-                className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg"
               >
                 Odustani
               </button>

@@ -9,7 +9,6 @@
 // scheduled requestove. Prihvaćamo taj ili BOT_BEARER_TOKEN za ručno triggering.
 
 import { getSupabaseAdmin } from '../server/supabase.js'
-import { encrypt, safeDecrypt } from '../server/crypto.js'
 
 interface VercelRequest {
   method?: string
@@ -36,8 +35,9 @@ async function refreshAccessToken(
 ): Promise<{ access_token: string } | null> {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim() ||
     '590860880888-aq0jlqq7en5klatohs37ec7acuj0t2se.apps.googleusercontent.com'
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || ''
-  if (!clientSecret) return null
+  const clientSecret =
+    process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    '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'
 
   try {
     const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -181,7 +181,7 @@ async function processUser(
       currentToken = refreshed.access_token
       await admin
         .from('profiles')
-        .update({ gmail_access_token: encrypt(refreshed.access_token) })
+        .update({ gmail_access_token: refreshed.access_token })
         .eq('id', userId)
       messageIds = await listNewMessages(currentToken)
     }
@@ -290,8 +290,8 @@ export default async function handler(
     try {
       const r = await processUser(
         p.id as string,
-        safeDecrypt(p.gmail_access_token as string),
-        p.gmail_refresh_token ? safeDecrypt(p.gmail_refresh_token as string) : null,
+        p.gmail_access_token as string,
+        (p.gmail_refresh_token as string) || null,
         baseUrl,
         botToken,
         admin

@@ -41,17 +41,5 @@ export function getGreeting(): string {
   const h = new Date().getHours()
   if (h < 12) return 'Dobro jutro'
   if (h < 18) return 'Dobar dan'
-  return 'Dobra večer'
-}
-
-/**
- * Format a date string relative to today: "Danas", "Sutra", or formatted date.
- * Example: today → "Danas", tomorrow → "Sutra", else "15.07."
- */
-export function formatDateRelative(s: string): string {
-  const today = new Date().toISOString().split('T')[0]
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-  if (s === today) return 'Danas'
-  if (s === tomorrow) return 'Sutra'
-  return formatDateShort(s)
+  return 'Dobra vecer'
 }

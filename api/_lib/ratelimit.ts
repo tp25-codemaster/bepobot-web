@@ -79,9 +79,6 @@ export const LIMITS = {
   // User-scoped: per-user per-minute
   BOT_CHAT: { requests: 30, window: '1m' as Duration },
   EXPENSIVE: { requests: 10, window: '1m' as Duration },
-  // Bot endpoints: per user_id or telegram_id
-  BOT_ENDPOINT: { requests: 20, window: '1m' as Duration },
-  PAIRING: { requests: 5, window: '5m' as Duration },
   // IP-scoped: public endpoints
   PUBLIC: { requests: 60, window: '1m' as Duration },
   PUBLIC_STRICT: { requests: 10, window: '1m' as Duration },

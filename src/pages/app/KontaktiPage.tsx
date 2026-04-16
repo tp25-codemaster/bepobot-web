@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
-import ErrorBanner from '../../components/app/ErrorBanner'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
@@ -39,7 +38,6 @@ export default function KontaktiPage() {
   const { user } = useAuth()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Contact | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -56,17 +54,11 @@ export default function KontaktiPage() {
 
   async function loadContacts() {
     setLoading(true)
-    setLoadError(null)
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('contacts')
       .select('*')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: true })
-    if (error) {
-      setLoadError('Greška pri učitavanju kontakata. Provjeri vezu i pokušaj ponovo.')
-      setLoading(false)
-      return
-    }
     setContacts((data as Contact[]) || [])
     setLoading(false)
   }
@@ -127,11 +119,7 @@ export default function KontaktiPage() {
 
   return (
     <AppShell title="Kontakti">
-      <div className="p-4 space-y-3 max-w-2xl mx-auto">
-        {loadError && (
-          <ErrorBanner message={loadError} onRetry={loadContacts} onDismiss={() => setLoadError(null)} />
-        )}
-
+      <div className="p-4 space-y-3">
         {loading ? (
           <div className="p-6 space-y-4">
             {[...Array(5)].map((_, i) => (
@@ -142,34 +130,36 @@ export default function KontaktiPage() {
           <>
             {contacts.map(contact => (
               <div key={contact.id} className="bg-white rounded-xl border border-border p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg flex-shrink-0" aria-hidden="true">
-                    {ROLE_ICONS[contact.role]}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg" aria-hidden="true">
+                      {ROLE_ICONS[contact.role]}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-text text-sm">{contact.name}</div>
+                      <div className="text-xs text-text-muted">{ROLE_LABELS[contact.role]}</div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-text text-sm truncate">{contact.name}</div>
-                    <div className="text-xs text-text-muted">{ROLE_LABELS[contact.role]}</div>
+                  <div className="flex items-center gap-3">
                     {contact.phone && (
                       <a
                         href={`tel:${contact.phone.replace(/\s/g, '')}`}
-                        className="text-primary text-sm font-medium mt-1 block"
+                        className="text-primary text-sm font-medium"
                         aria-label={`Nazovi ${contact.name}`}
                       >
                         {contact.phone}
                       </a>
                     )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => setEditing({ ...contact })}
-                      className="text-xs text-primary font-medium px-2 py-1 rounded-md hover:bg-primary/10 active:bg-primary/20 transition-colors"
+                      className="text-xs text-primary font-medium"
                       aria-label={`Uredi kontakt ${contact.name}`}
                     >
                       Uredi
                     </button>
                     <button
                       onClick={() => setDeleteConfirmId(contact.id)}
-                      className="text-xs text-red-500 font-medium px-2 py-1 rounded-md hover:bg-red-50 active:bg-red-100 transition-colors"
+                      className="text-xs text-red-500 font-medium"
                       aria-label={`Obriši kontakt ${contact.name}`}
                     >
                       Obriši

@@ -62,13 +62,3 @@ export function decrypt(payload: string): string {
   ])
   return decrypted.toString('utf8')
 }
-
-// Migration-safe decrypt: tries to decrypt; if it fails (legacy plaintext token),
-// returns the value as-is so existing unencrypted DB rows keep working.
-export function safeDecrypt(value: string): string {
-  try {
-    return decrypt(value)
-  } catch {
-    return value
-  }
-}

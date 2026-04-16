@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback, type TouchEvent as ReactTouchEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, type TouchEvent as ReactTouchEvent} from 'react'
 import ChatBubble from '../components/chat/ChatBubble'
-import ChatCard from '../components/chat/ChatCard'
+import ChatCard, { ScrollToBottomFAB, WelcomeCard } from '../components/chat/ChatCard'
 import QuickActions from '../components/chat/QuickActions'
 import TypingIndicator from '../components/chat/TypingIndicator'
 import ChatInput from '../components/chat/ChatInput'
@@ -41,9 +41,7 @@ export default function AppSimulation() {
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [pullDistance, setPullDistance] = useState(0)
-  const [showScrollButton, setShowScrollButton] = useState(false)
   const chatRef = useRef<HTMLDivElement>(null)
-  const isAtBottomRef = useRef(true)
   const touchStartY = useRef(0)
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const hasStartedOnboarding = useRef(false)
@@ -56,36 +54,12 @@ export default function AppSimulation() {
     timeoutsRef.current = []
   }, [])
 
-  const scrollToBottom = useCallback(() => {
-    if (!chatRef.current) return
-    chatRef.current.scrollTop = chatRef.current.scrollHeight
-    isAtBottomRef.current = true
-    setShowScrollButton(false)
-  }, [])
-
-  const handleScroll = useCallback(() => {
-    if (!chatRef.current) return
-    const { scrollTop, scrollHeight, clientHeight } = chatRef.current
-    const atBottom = scrollHeight - scrollTop - clientHeight < 60
-    isAtBottomRef.current = atBottom
-    setShowScrollButton(!atBottom)
-  }, [])
-
-  // Auto-scroll when new messages arrive (only if already at bottom)
+  // Auto-scroll
   useEffect(() => {
-    if (isAtBottomRef.current && chatRef.current) {
+    if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight
-    } else if (!isAtBottomRef.current) {
-      setShowScrollButton(true)
     }
   }, [messages, showTyping, sending])
-
-  // Scroll to bottom when history first loads
-  useEffect(() => {
-    if (historyLoaded) {
-      scrollToBottom()
-    }
-  }, [historyLoaded, scrollToBottom])
 
   // Start onboarding on mount if needed and no history
   useEffect(() => {
@@ -305,115 +279,92 @@ export default function AppSimulation() {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 relative overflow-hidden">
-        <div
-          ref={chatRef}
-          className="h-full overflow-y-auto p-4 space-y-3"
-          onScroll={handleScroll}
-          onTouchStart={(e: ReactTouchEvent) => {
-            touchStartY.current = e.touches[0].clientY
-          }}
-          onTouchMove={(e: ReactTouchEvent) => {
-            if (!chatRef.current || chatRef.current.scrollTop > 0) return
-            const dy = e.touches[0].clientY - touchStartY.current
-            if (dy > 0 && dy < 120) setPullDistance(dy)
-          }}
-          onTouchEnd={() => {
-            if (pullDistance > 60 && !refreshing) {
-              setRefreshing(true)
-              setPullDistance(60)
-              reloadMessages().finally(() => {
-                setRefreshing(false)
-                setPullDistance(0)
-              })
-            } else {
+      <div
+        ref={chatRef}
+        className="flex-1 overflow-y-auto p-4 space-y-3 relative"
+        onTouchStart={(e: ReactTouchEvent) => {
+          touchStartY.current = e.touches[0].clientY
+        }}
+        onTouchMove={(e: ReactTouchEvent) => {
+          if (!chatRef.current || chatRef.current.scrollTop > 0) return
+          const dy = e.touches[0].clientY - touchStartY.current
+          if (dy > 0 && dy < 120) setPullDistance(dy)
+        }}
+        onTouchEnd={() => {
+          if (pullDistance > 60 && !refreshing) {
+            setRefreshing(true)
+            setPullDistance(60)
+            reloadMessages().finally(() => {
+              setRefreshing(false)
               setPullDistance(0)
-            }
-          }}
-        >
-          {/* Pull to refresh indicator */}
-          {pullDistance > 0 && (
-            <div
-              className="absolute top-0 left-0 right-0 flex justify-center transition-transform"
-              style={{ transform: `translateY(${Math.min(pullDistance, 60) - 40}px)` }}
+            })
+          } else {
+            setPullDistance(0)
+          }
+        }}
+      >
+        {/* Pull to refresh indicator */}
+        {pullDistance > 0 && (
+          <div
+            className="absolute top-0 left-0 right-0 flex justify-center transition-transform"
+            style={{ transform: `translateY(${Math.min(pullDistance, 60) - 40}px)` }}
+          >
+            <div className={`w-6 h-6 border-2 border-primary border-t-transparent rounded-full ${refreshing ? 'animate-spin' : ''}`} />
+          </div>
+        )}
+        {/* Load older messages button */}
+        {hasMoreOlder && messages.length > 0 && (
+          <div className="flex justify-center mb-2">
+            <button
+              onClick={loadOlder}
+              disabled={loadingOlder}
+              className="text-xs text-primary font-medium px-4 py-1.5 bg-primary/5 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50"
             >
-              <div className={`w-6 h-6 border-2 border-primary border-t-transparent rounded-full ${refreshing ? 'animate-spin' : ''}`} />
-            </div>
-          )}
+              {loadingOlder ? 'Ucitavam...' : '↑ Ucitaj starije poruke'}
+            </button>
+          </div>
+        )}
+        {messages.length === 0 && (historyLoaded || isDemo) && !isOnboarding && (
+          <WelcomeCard onSuggestion={handleUserInput} />
+        )}
 
-          {/* Load older messages button */}
-          {hasMoreOlder && messages.length > 0 && (
-            <div className="flex justify-center mb-2">
-              <button
-                onClick={loadOlder}
-                disabled={loadingOlder}
-                className="text-xs text-primary font-medium px-4 py-1.5 bg-primary/5 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-50"
-              >
-                {loadingOlder ? 'Ucitavam...' : '↑ Ucitaj starije poruke'}
-              </button>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!isOnboarding && messages.length === 0 && historyLoaded && !showTyping && !sending && (
-            <div className="flex flex-col items-center justify-center h-full text-center px-8 py-16">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <span className="text-3xl">💬</span>
-              </div>
-              <h3 className="text-text font-semibold mb-1">Nema poruka</h3>
-              <p className="text-sm text-text-muted">Postavi pitanje ili odaberi brzu akciju ispod</p>
-            </div>
-          )}
-
-          {messages.map((msg, i) => {
-            if (msg.type === 'user') {
-              return (
-                <ChatBubble key={msg.id || i} role="user" animate timestamp={msg.timestamp}>
-                  {msg.content}
-                </ChatBubble>
-              )
-            }
-            if (msg.type === 'bot-card' && msg.card) {
-              return (
-                <ChatCard
-                  key={msg.id || i}
-                  title={msg.card.title}
-                  fields={msg.card.fields}
-                  animate
-                />
-              )
-            }
-            if (msg.type === 'bot-actions' && msg.actions) {
-              return (
-                <QuickActions
-                  key={msg.id || i}
-                  actions={msg.actions}
-                  onAction={handleQuickAction}
-                />
-              )
-            }
+        {messages.map((msg, i) => {
+          if (msg.type === 'user') {
             return (
-              <ChatBubble key={msg.id || i} role="bot" animate timestamp={msg.timestamp} copyText={msg.content}>
-                {renderMarkdown(msg.content || '')}
+              <ChatBubble key={msg.id || i} role="user" animate timestamp={msg.timestamp}>
+                {msg.content}
               </ChatBubble>
             )
-          })}
+          }
+          if (msg.type === 'bot-card' && msg.card) {
+            return (
+              <ChatCard
+                key={msg.id || i}
+                title={msg.card.title}
+                fields={msg.card.fields}
+                animate
+              />
+            )
+          }
+          if (msg.type === 'bot-actions' && msg.actions) {
+            return (
+              <QuickActions
+                key={msg.id || i}
+                actions={msg.actions}
+                onAction={handleQuickAction}
+              />
+            )
+          }
+          return (
+            <ChatBubble key={msg.id || i} role="bot" animate timestamp={msg.timestamp}>
+              {renderMarkdown(msg.content || '')}
+            </ChatBubble>
+          )
+        })}
 
-          {(showTyping || sending) && <TypingIndicator />}
-        </div>
+        {(showTyping || sending) && <TypingIndicator />}
 
-        {/* Scroll to bottom button */}
-        {showScrollButton && (
-          <button
-            onClick={scrollToBottom}
-            className="absolute bottom-3 right-3 w-9 h-9 bg-white border border-border shadow-md rounded-full flex items-center justify-center text-text-muted hover:text-primary hover:border-primary transition-colors"
-            aria-label="Skrolaj na dno"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-        )}
+        <ScrollToBottomFAB scrollRef={chatRef} />
       </div>
 
       {/* Quick action bar — hide during onboarding */}

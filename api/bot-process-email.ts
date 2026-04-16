@@ -17,8 +17,6 @@
 import { getSupabaseAdmin } from '../server/supabase.js'
 import { findConflicts } from '../server/conflict-check.js'
 import { randomUUID, randomBytes } from 'node:crypto'
-import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
-import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -197,7 +195,9 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  setCorsHeaders(res)
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') {
     res.status(204).end()
@@ -234,24 +234,6 @@ export default async function handler(
   if (!payload.user_id) {
     res.status(400).json({ success: false, error: 'user_id je obavezan' })
     return
-  }
-
-  // Rate limit per user_id — prevents spam processing
-  const rl = await checkRateLimit('bot-process-email', payload.user_id, LIMITS.BOT_ENDPOINT)
-  if (!rl.allowed) {
-    res.status(429).json({ success: false, error: 'Too many requests' })
-    return
-  }
-
-  // Enforce field length limits to prevent LLM overload
-  if (payload.email_from && payload.email_from.length > 320) {
-    payload.email_from = payload.email_from.slice(0, 320)
-  }
-  if (payload.email_subject && payload.email_subject.length > 998) {
-    payload.email_subject = payload.email_subject.slice(0, 998)
-  }
-  if (payload.email_body && payload.email_body.length > 8000) {
-    payload.email_body = payload.email_body.slice(0, 8000)
   }
 
   const admin = getSupabaseAdmin()

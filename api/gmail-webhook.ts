@@ -126,7 +126,7 @@ async function fetchGmailMessage(
 
   // Extract body (plain text preferred)
   let body = ''
-  const parts = data.payload?.parts || (data.payload ? [data.payload] : [])
+  const parts = data.payload?.parts || [data.payload as any]
   for (const part of parts) {
     if (part?.mimeType === 'text/plain' && part?.body?.data) {
       body = Buffer.from(part.body.data, 'base64').toString('utf-8')

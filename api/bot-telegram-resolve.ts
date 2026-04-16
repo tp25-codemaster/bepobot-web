@@ -9,8 +9,6 @@
 // Auth: BOT_BEARER_TOKEN (isti shared secret kao ostali bot endpointi).
 
 import { getSupabaseAdmin } from '../server/supabase.js'
-import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
-import { setCorsHeaders } from './_lib/cors.js'
 
 interface VercelRequest {
   method?: string
@@ -28,7 +26,9 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  setCorsHeaders(res)
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') {
     res.status(204).end()
@@ -86,12 +86,6 @@ export default async function handler(
 
   // Pairing flow: korisnik je poslao /start <code>
   if (pairingCode) {
-    // Rate limit pairing attempts to prevent brute force
-    const rl = await checkRateLimit('telegram-pairing', String(telegramId), LIMITS.PAIRING)
-    if (!rl.allowed) {
-      res.status(429).json({ success: false, paired: false, error: 'Too many pairing attempts. Try again later.' })
-      return
-    }
     const { data: target } = await admin
       .from('profiles')
       .select(
