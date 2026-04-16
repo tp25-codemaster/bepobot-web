@@ -53,112 +53,173 @@ export default function PostavkePage() {
 
   return (
     <AppShell title="Postavke">
-      <div className="p-4 space-y-4">
-        {/* Profile */}
-        <div className="bg-white rounded-xl border border-border p-4">
-          <h3 className="font-semibold text-text mb-3">Profil</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-text-muted">Ime</span>
-              <span className="text-text font-medium">
-                {profile?.full_name || (isDemo ? 'Demo korisnik' : '-')}
+      <div className="p-4 space-y-6">
+
+        {/* Profil */}
+        <section>
+          <SectionHeader icon="👤" label="Profil" />
+          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+              <span className="text-sm text-text-muted">Ime</span>
+              <span className="text-sm text-text font-medium">
+                {profile?.full_name || (isDemo ? 'Demo korisnik' : '—')}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Email</span>
-              <span className="text-text font-medium">
-                {isDemo ? 'demo@bepobot.hr' : user?.email || '-'}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+              <span className="text-sm text-text-muted">Email</span>
+              <span className="text-sm text-text font-medium">
+                {isDemo ? 'demo@bepobot.hr' : user?.email || '—'}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Plan</span>
-              <span className="text-primary font-semibold capitalize">
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm text-text-muted">Plan</span>
+              <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-primary/10 text-primary capitalize">
                 {profile?.plan === 'trial' ? '14 dana trial' : profile?.plan || 'trial'}
               </span>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Gmail */}
-        <div className="bg-white rounded-xl border border-border p-4">
-          <h3 className="font-semibold text-text mb-3">Gmail</h3>
-          <p className="text-xs text-text-muted mb-3">
-            Poveži Gmail da BepoBot automatski prati nove rezervacije iz Booking.com, Airbnb i direktnih emailova.
-          </p>
-          {gmailStatus === 'connected' && (
-            <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-              Gmail uspješno povezan!
-            </div>
-          )}
-          {gmailStatus === 'error' && (
-            <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-              Greška pri povezivanju Gmaila. Pokušajte ponovo.
-            </div>
-          )}
-          {profile?.gmail_connected ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span className="text-sm text-text font-medium">{profile.gmail_email || 'Povezan'}</span>
-              </div>
-              <button
-                onClick={handleDisconnectGmail}
-                disabled={disconnecting}
-                className="w-full py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-              >
-                {disconnecting ? 'Odspajam...' : 'Odspoji Gmail'}
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={handleConnectGmail}
-              disabled={isDemo}
-              className="w-full py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              Povezi Gmail
-            </button>
-          )}
-        </div>
-
-        {/* Notifications */}
-        <div className="bg-white rounded-xl border border-border p-4">
-          <h3 className="font-semibold text-text mb-3">Obavijesti</h3>
+        {/* Integracije */}
+        <section>
+          <SectionHeader icon="🔌" label="Integracije" />
           <div className="space-y-3">
+
+            {/* Gmail */}
+            <div className="bg-white rounded-2xl border border-border/60 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                    <GmailIcon />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-text">Gmail</div>
+                    <div className="text-xs text-text-muted">Booking, Airbnb, direktni emailovi</div>
+                  </div>
+                </div>
+                <ConnectionBadge connected={!!profile?.gmail_connected} />
+              </div>
+
+              {gmailStatus === 'connected' && (
+                <div className="mb-3 px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-xs text-green-700 flex items-center gap-1.5">
+                  <span>✓</span>
+                  <span>Gmail uspješno povezan!</span>
+                </div>
+              )}
+              {gmailStatus === 'error' && (
+                <div className="mb-3 px-3 py-2 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 flex items-center gap-1.5">
+                  <span>⚠</span>
+                  <span>Greška pri povezivanju. Pokušajte ponovo.</span>
+                </div>
+              )}
+
+              {profile?.gmail_connected ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0" />
+                    <span className="text-xs text-text font-medium truncate">
+                      {profile.gmail_email || 'Povezan'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleDisconnectGmail}
+                    disabled={disconnecting}
+                    className="w-full py-2 text-xs font-medium text-text-muted bg-gray-50 rounded-xl border border-border/40 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                  >
+                    {disconnecting ? 'Odspajam...' : 'Odspoji Gmail'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleConnectGmail}
+                  disabled={isDemo}
+                  className="w-full py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  Povezi Gmail
+                </button>
+              )}
+            </div>
+
+            {/* eVisitor */}
+            <button
+              type="button"
+              onClick={() => navigate('/app/evisitor')}
+              className="w-full bg-white rounded-2xl border border-border/60 shadow-sm p-4 text-left hover:border-primary/30 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm">🏛️</span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-text">eVisitor</div>
+                    <div className="text-xs text-text-muted">
+                      {profile?.evisitor_connected
+                        ? profile.evisitor_username || 'Povezan'
+                        : 'Automatska prijava gostiju'}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ConnectionBadge connected={!!profile?.evisitor_connected} />
+                  <svg className="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+
+          </div>
+        </section>
+
+        {/* Obavijesti */}
+        <section>
+          <SectionHeader icon="🔔" label="Obavijesti" />
+          <div className="bg-white rounded-2xl border border-border/60 shadow-sm divide-y divide-border/40">
             <ToggleRow label="Jutarnji pregled (08:00)" defaultOn />
             <ToggleRow label="Novi dolasci" defaultOn />
             <ToggleRow label="Podsjetnici za check-out" defaultOn={false} />
           </div>
-        </div>
+        </section>
 
-        {/* Language */}
-        <div className="bg-white rounded-xl border border-border p-4">
-          <h3 className="font-semibold text-text mb-3">Jezik</h3>
-          <div className="flex gap-2" role="group" aria-label="Odabir jezika">
+        {/* Jezik */}
+        <section>
+          <SectionHeader icon="🌐" label="Jezik" />
+          <div className="bg-white rounded-2xl border border-border/60 shadow-sm p-4">
+            <div className="flex gap-2" role="group" aria-label="Odabir jezika">
+              <button
+                className="flex-1 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl"
+                aria-pressed="true"
+              >
+                Hrvatski
+              </button>
+              <button
+                className="flex-1 py-2.5 bg-gray-50 text-text-muted text-sm font-medium rounded-xl border border-border/40"
+                aria-pressed="false"
+              >
+                English
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Opasna zona */}
+        <section>
+          <SectionHeader icon="⚠️" label="Opasna zona" />
+          <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-4">
             <button
-              className="flex-1 py-2 bg-primary text-white text-sm font-semibold rounded-lg"
-              aria-pressed="true"
+              onClick={handleLogout}
+              className="w-full py-3 bg-red-50 text-red-600 font-semibold rounded-xl border border-red-200 hover:bg-red-100 transition-colors text-sm flex items-center justify-center gap-2"
             >
-              Hrvatski
-            </button>
-            <button
-              className="flex-1 py-2 bg-gray-100 text-text-muted text-sm font-medium rounded-lg"
-              aria-pressed="false"
-            >
-              English
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Odjavi se
             </button>
           </div>
-        </div>
+        </section>
 
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="w-full py-3 bg-red-50 text-red-600 font-semibold rounded-xl border border-red-200 hover:bg-red-100 transition-colors text-sm"
-        >
-          Odjavi se
-        </button>
-
-        {/* Version */}
-        <p className="text-center text-xs text-text-muted">
+        <p className="text-center text-xs text-text-muted pb-2">
           BepoBot v0.1.0 · Powered by Noēsiss
         </p>
       </div>
@@ -166,10 +227,40 @@ export default function PostavkePage() {
   )
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function SectionHeader({ icon, label }: { icon: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-2 px-1">
+      <span className="text-sm">{icon}</span>
+      <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">{label}</span>
+    </div>
+  )
+}
+
+function ConnectionBadge({ connected }: { connected: boolean }) {
+  return (
+    <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+      connected ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-text-muted'
+    }`}>
+      {connected ? 'Povezano' : 'Nije pov.'}
+    </span>
+  )
+}
+
+function GmailIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <polyline points="22,6 12,13 2,6" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 function ToggleRow({ label, defaultOn = false }: { label: string; defaultOn?: boolean }) {
   const [on, setOn] = useState(defaultOn)
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between px-4 py-3.5">
       <span className="text-sm text-text" id={`toggle-label-${label.replace(/\s/g, '-')}`}>{label}</span>
       <button
         onClick={() => setOn(!on)}
@@ -177,10 +268,10 @@ function ToggleRow({ label, defaultOn = false }: { label: string; defaultOn?: bo
         aria-checked={on}
         aria-labelledby={`toggle-label-${label.replace(/\s/g, '-')}`}
         className={`relative w-11 h-6 rounded-full transition-colors ${
-          on ? 'bg-primary' : 'bg-gray-300'
+          on ? 'bg-primary' : 'bg-gray-200'
         }`}
       >
-        <div aria-hidden="true" className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+        <div aria-hidden="true" className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
           on ? 'translate-x-5.5' : 'translate-x-0.5'
         }`} />
       </button>

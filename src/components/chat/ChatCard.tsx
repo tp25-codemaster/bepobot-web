@@ -14,21 +14,19 @@ interface ChatCardProps {
 
 export default function ChatCard({ title, fields, animate = false }: ChatCardProps) {
   return (
-    <div className={`flex justify-start ${animate ? 'animate-slide-up' : ''}`}>
-      <div className="w-7 h-7 rounded-full bg-primary flex-shrink-0 flex items-center justify-center mr-2 mt-1">
+    <div className={`flex justify-start items-end gap-2 ${animate ? 'animate-slide-up' : ''}`}>
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/75 flex-shrink-0 flex items-center justify-center shadow-sm ring-2 ring-white mb-1">
         <span className="text-white text-xs font-bold">B</span>
       </div>
-      <div className="max-w-[85%] bg-gray-100 rounded-2xl rounded-bl-md overflow-hidden">
-        <div className="px-3.5 py-2 text-sm font-medium text-primary">
+      <div className="max-w-[85%] bg-white border border-gray-100 rounded-2xl rounded-bl-sm shadow-sm overflow-hidden">
+        <div className="px-3.5 py-2.5 text-sm font-semibold text-primary border-b border-gray-50">
           {title}
         </div>
-        <div className="bg-white mx-2 mb-2 rounded-xl border border-border">
+        <div className="divide-y divide-gray-50">
           {fields.map((field, i) => (
             <div
               key={i}
-              className={`flex items-center gap-2 px-3 py-2 text-xs ${
-                i < fields.length - 1 ? 'border-b border-border/50' : ''
-              }`}
+              className="flex items-center gap-2 px-3.5 py-2 text-xs"
             >
               <span>{field.icon}</span>
               <span className="text-text-muted">{field.label}</span>
@@ -92,16 +90,20 @@ interface WelcomeCardProps {
 export function WelcomeCard({ onSuggestion }: WelcomeCardProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center mb-4 shadow-md">
-        <span className="text-white text-xl font-bold">B</span>
+      <div className="relative mb-6">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg ring-4 ring-primary/10">
+          <span className="text-white text-2xl font-bold">B</span>
+        </div>
+        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-2 border-white shadow-sm" />
       </div>
-      <p className="text-text font-medium text-base mb-6">Pozdrav! Kako mogu pomoći?</p>
+      <p className="text-text font-semibold text-base mb-1">BepoBot</p>
+      <p className="text-text-muted text-sm mb-6">Kako mogu pomoći danas?</p>
       <div className="flex flex-wrap gap-2 justify-center">
         {WELCOME_SUGGESTIONS.map((s) => (
           <button
             key={s}
             onClick={() => onSuggestion(s)}
-            className="px-3.5 py-2 bg-primary/10 text-primary text-sm rounded-full hover:bg-primary/20 active:scale-95 transition-all"
+            className="px-3.5 py-2 bg-gray-50 text-text-muted border border-border/60 text-sm rounded-full hover:bg-primary/5 hover:text-primary hover:border-primary/30 active:scale-95 transition-all"
           >
             {s}
           </button>

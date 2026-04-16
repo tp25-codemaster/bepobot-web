@@ -226,7 +226,7 @@ export default function EVisitorSettingsPage() {
         ) : (
           <>
             {/* Connection status */}
-            <div className="bg-white rounded-xl border border-border p-4">
+            <div className="bg-white rounded-2xl border border-border/60 shadow-sm p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-text">Povezivanje</h3>
                 <StatusBadge
@@ -258,7 +258,7 @@ export default function EVisitorSettingsPage() {
                       required
                       autoComplete="off"
                       disabled={submitting}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:opacity-50"
+                      className="w-full px-3 py-2.5 border border-border/60 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:opacity-50 bg-gray-50/50"
                     />
                   </div>
                   <div>
@@ -274,7 +274,7 @@ export default function EVisitorSettingsPage() {
                         required
                         autoComplete="new-password"
                         disabled={submitting}
-                        className="w-full px-3 py-2 pr-10 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:opacity-50"
+                        className="w-full px-3 py-2.5 pr-10 border border-border/60 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:opacity-50 bg-gray-50/50"
                       />
                       <button
                         type="button"
@@ -290,7 +290,7 @@ export default function EVisitorSettingsPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {submitting ? (
                       <>
@@ -311,7 +311,7 @@ export default function EVisitorSettingsPage() {
                   <button
                     onClick={handleTestConnection}
                     disabled={testing || submitting}
-                    className="w-full py-2 bg-white border border-primary text-primary text-sm font-semibold rounded-lg hover:bg-primary/5 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-white border border-primary/40 text-primary text-sm font-semibold rounded-xl hover:bg-primary/5 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {testing ? (
                       <>
@@ -324,7 +324,7 @@ export default function EVisitorSettingsPage() {
                   <button
                     onClick={() => setConfirmDisconnect(true)}
                     disabled={submitting || testing}
-                    className="w-full py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {submitting ? (
                       <>
@@ -340,7 +340,7 @@ export default function EVisitorSettingsPage() {
 
             {/* Auto check-in toggle */}
             <div
-              className={`bg-white rounded-xl border border-border p-4 ${
+              className={`bg-white rounded-2xl border border-border/60 shadow-sm p-4 ${
                 !connected ? 'opacity-50' : ''
               }`}
             >
@@ -358,11 +358,11 @@ export default function EVisitorSettingsPage() {
                   onClick={handleAutoToggle}
                   disabled={!connected}
                   className={`relative w-11 h-6 rounded-full transition-colors ${
-                    autoCheckin ? 'bg-primary' : 'bg-gray-300'
+                    autoCheckin ? 'bg-primary' : 'bg-gray-200'
                   } disabled:cursor-not-allowed`}
                 >
                   <div
-                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
                       autoCheckin ? 'translate-x-5.5' : 'translate-x-0.5'
                     }`}
                   />
@@ -371,7 +371,7 @@ export default function EVisitorSettingsPage() {
             </div>
 
             {/* Activity log */}
-            <div className="bg-white rounded-xl border border-border p-4">
+            <div className="bg-white rounded-2xl border border-border/60 shadow-sm p-4">
               <h3 className="font-semibold text-text mb-3">Zadnje prijave</h3>
               {log.length === 0 ? (
                 <p className="text-sm text-text-muted py-2">
@@ -437,7 +437,7 @@ function StatusBadge({
   if (connected) {
     return (
       <span
-        className={`relative px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 ${
+        className={`relative px-2.5 py-1 text-xs font-semibold rounded-full bg-green-50 text-green-700 ${
           pulse ? 'ring-2 ring-green-400 ring-offset-1' : ''
         }`}
       >
@@ -445,13 +445,13 @@ function StatusBadge({
           <span className="absolute inset-0 rounded-full bg-green-400 opacity-40 animate-ping" />
         )}
         <span className="relative">
-          Povezano{username ? ` (${username})` : ''}
+          Povezano{username ? ` · ${username}` : ''}
         </span>
       </span>
     )
   }
   return (
-    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">
+    <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-text-muted">
       Nije povezano
     </span>
   )
@@ -498,7 +498,7 @@ function ErrorAlert({
 function ConnectionSkeleton() {
   return (
     <>
-      <div className="bg-white rounded-xl border border-border p-4 animate-pulse">
+      <div className="bg-white rounded-2xl border border-border/60 shadow-sm p-4 animate-pulse">
         <div className="flex items-center justify-between mb-4">
           <div className="h-4 w-28 bg-gray-200 rounded" />
           <div className="h-5 w-24 bg-gray-200 rounded-full" />
@@ -509,10 +509,10 @@ function ConnectionSkeleton() {
           <div className="h-9 bg-gray-200 rounded-lg" />
         </div>
       </div>
-      <div className="bg-white rounded-xl border border-border p-4 animate-pulse">
+      <div className="bg-white rounded-2xl border border-border/60 shadow-sm p-4 animate-pulse">
         <div className="h-4 w-48 bg-gray-200 rounded" />
       </div>
-      <div className="bg-white rounded-xl border border-border p-4 animate-pulse">
+      <div className="bg-white rounded-2xl border border-border/60 shadow-sm p-4 animate-pulse">
         <div className="h-4 w-32 bg-gray-200 rounded mb-3" />
         <div className="space-y-2">
           <div className="h-10 bg-gray-100 rounded" />

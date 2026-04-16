@@ -40,7 +40,7 @@ export default function ChatBubble({
       } ${animate ? 'animate-slide-up' : ''}`}
     >
       {!isUser && (
-        <div className="w-7 h-7 rounded-full bg-primary flex-shrink-0 flex items-center justify-center self-end mb-1">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/75 flex-shrink-0 flex items-center justify-center self-end mb-1 shadow-sm ring-2 ring-white">
           <span className="text-white text-xs font-bold">B</span>
         </div>
       )}
@@ -54,8 +54,8 @@ export default function ChatBubble({
           ref={bubbleRef}
           className={`group relative inline-block px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap ${
             isUser
-              ? 'bg-primary text-white rounded-2xl rounded-br-md'
-              : 'bg-gray-100 text-text rounded-2xl rounded-bl-md'
+              ? 'bg-primary text-white rounded-2xl rounded-br-sm shadow-sm'
+              : 'bg-white border border-gray-100 text-text rounded-2xl rounded-bl-sm shadow-sm'
           }`}
         >
           {children}
@@ -81,6 +81,21 @@ export default function ChatBubble({
         {time && (
           <span className="text-[10px] text-gray-400 mt-1 px-1">{time}</span>
         )}
+      </div>
+    </div>
+  )
+}
+
+export function TypingIndicator() {
+  return (
+    <div className="flex w-full items-end gap-2 justify-start animate-slide-up">
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/75 flex-shrink-0 flex items-center justify-center self-end mb-1 shadow-sm ring-2 ring-white">
+        <span className="text-white text-xs font-bold">B</span>
+      </div>
+      <div className="inline-flex items-center gap-1 px-4 py-3 bg-white border border-gray-100 rounded-2xl rounded-bl-sm shadow-sm">
+        <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
+        <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
       </div>
     </div>
   )
