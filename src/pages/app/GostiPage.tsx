@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
-import EmptyState from '../../components/app/EmptyState'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import type { ReservationRow, GuestAggregate } from '../../types/index'
 import { formatDate, nights } from '../../lib/dateUtils'
+
+const AVATAR_COLORS = [
+  'bg-violet-500', 'bg-blue-500', 'bg-teal-500', 'bg-green-500',
+  'bg-amber-500', 'bg-orange-500', 'bg-red-500', 'bg-pink-500',
+]
 
 const COUNTRY_FLAGS: Record<string, string> = {
   HRV: '🇭🇷',
@@ -328,24 +332,34 @@ export default function GostiPage() {
           </div>
         ) : filtered.length === 0 ? (
           search ? (
-            <EmptyState
-              icon="🔍"
-              title="Nema rezultata"
-              description={`Nema gostiju koji odgovaraju pretrazi "${search}".`}
-            />
+            <div className="text-center py-12 px-4">
+              <svg viewBox="0 0 80 80" className="w-20 h-20 mx-auto mb-4 text-primary opacity-25" fill="currentColor">
+                <circle cx="34" cy="34" r="22" fill="none" stroke="currentColor" strokeWidth="5"/>
+                <line x1="50" y1="50" x2="68" y2="68" stroke="currentColor" strokeWidth="5" strokeLinecap="round"/>
+              </svg>
+              <h3 className="text-base font-semibold text-text mb-1">Nema rezultata</h3>
+              <p className="text-sm text-text-muted max-w-xs mx-auto">{`Nema gostiju koji odgovaraju pretrazi "${search}".`}</p>
+            </div>
           ) : (
-            <EmptyState
-              icon="🧳"
-              title="Još nemate gostiju"
-              description={profile?.evisitor_connected
-                ? 'Uvezite povijest iz eVisitora ili čekajte da gost popuni self check-in formu.'
-                : 'Čim prvi gost popuni self check-in formu ili uvezete povijest iz eVisitora, pojavit će se ovdje.'}
-            />
+            <div className="text-center py-12 px-4">
+              <svg viewBox="0 0 80 80" className="w-20 h-20 mx-auto mb-4 text-primary opacity-25" fill="currentColor">
+                <rect x="20" y="30" width="40" height="34" rx="5"/>
+                <rect x="30" y="22" width="20" height="10" rx="3" fill="none" stroke="currentColor" strokeWidth="3.5"/>
+                <line x1="40" y1="30" x2="40" y2="64" stroke="white" strokeWidth="2.5"/>
+                <line x1="20" y1="47" x2="60" y2="47" stroke="white" strokeWidth="2.5"/>
+              </svg>
+              <h3 className="text-base font-semibold text-text mb-1">Još nemate gostiju</h3>
+              <p className="text-sm text-text-muted max-w-xs mx-auto">
+                {profile?.evisitor_connected
+                  ? 'Uvezite povijest iz eVisitora ili čekajte da gost popuni self check-in formu.'
+                  : 'Čim prvi gost popuni self check-in formu ili uvezete povijest iz eVisitora, pojavit će se ovdje.'}
+              </p>
+            </div>
           )
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {filtered.map((g) => (
-              <GuestRow
+              <GuestCard
                 key={g.key}
                 guest={g}
                 onClick={() => setSelected(g)}
@@ -394,7 +408,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
   )
 }
 
-function GuestRow({
+function GuestCard({
   guest,
   onClick,
 }: {
@@ -402,32 +416,30 @@ function GuestRow({
   onClick: () => void
 }) {
   const flag = guest.citizenship ? COUNTRY_FLAGS[guest.citizenship] || '🌍' : ''
+  const initials = [guest.name[0], guest.surname[0]].filter(Boolean).join('').toUpperCase()
+  const colorIdx = ((guest.name.charCodeAt(0) || 0) + (guest.surname.charCodeAt(0) || 0)) % AVATAR_COLORS.length
+  const avatarColor = AVATAR_COLORS[colorIdx]
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white rounded-xl border border-border p-4 hover:border-primary/50 hover:shadow-sm transition-all"
+      className="w-full text-left bg-white rounded-2xl border border-border p-4 hover:border-primary/50 hover:shadow-md transition-all flex flex-col items-center text-center gap-2"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-text flex items-center gap-2">
-            {flag && <span className="text-base">{flag}</span>}
-            <span className="truncate">
-              {guest.name} {guest.surname}
-            </span>
-          </div>
-          <div className="text-xs text-text-muted mt-0.5 truncate">
-            {guest.city || '—'}
-            {guest.email && <> · {guest.email}</>}
-          </div>
+      <div className={`w-14 h-14 rounded-full ${avatarColor} flex items-center justify-center text-white font-bold text-lg flex-shrink-0`}>
+        {initials || '?'}
+      </div>
+      <div className="w-full min-w-0">
+        <div className="font-semibold text-text text-sm truncate">
+          {guest.name} {guest.surname}
         </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-xs font-semibold text-primary">
-            {guest.totalStays}×
-          </div>
-          <div className="text-[10px] text-text-muted">
-            {formatDate(guest.lastStay)}
-          </div>
+        <div className="text-xs text-text-muted truncate">
+          {flag && <span className="mr-1">{flag}</span>}{guest.city || '—'}
         </div>
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap justify-center">
+        <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-semibold rounded-full">
+          {guest.totalStays}×
+        </span>
+        <span className="text-[10px] text-text-muted">{guest.totalNights} noći</span>
       </div>
     </button>
   )

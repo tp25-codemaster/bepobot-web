@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
-import EmptyState from '../../components/app/EmptyState'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
@@ -25,6 +24,12 @@ const ROLE_ICONS: Record<ContactRole, string> = {
   cleaner: '🧹',
   cohost: '👥',
   maintenance: '🔧',
+}
+
+const ROLE_COLORS: Record<ContactRole, string> = {
+  cleaner: 'bg-teal-500',
+  cohost: 'bg-blue-500',
+  maintenance: 'bg-amber-500',
 }
 
 const DEMO_CONTACTS: Contact[] = [
@@ -128,55 +133,67 @@ export default function KontaktiPage() {
           </div>
         ) : (
           <>
-            {contacts.map(contact => (
-              <div key={contact.id} className="bg-white rounded-xl border border-border p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg" aria-hidden="true">
-                      {ROLE_ICONS[contact.role]}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-text text-sm">{contact.name}</div>
-                      <div className="text-xs text-text-muted">{ROLE_LABELS[contact.role]}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {contact.phone && (
-                      <a
-                        href={`tel:${contact.phone.replace(/\s/g, '')}`}
-                        className="text-primary text-sm font-medium"
-                        aria-label={`Nazovi ${contact.name}`}
-                      >
-                        {contact.phone}
-                      </a>
-                    )}
-                    <button
-                      onClick={() => setEditing({ ...contact })}
-                      className="text-xs text-primary font-medium"
-                      aria-label={`Uredi kontakt ${contact.name}`}
-                    >
-                      Uredi
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirmId(contact.id)}
-                      className="text-xs text-red-500 font-medium"
-                      aria-label={`Obriši kontakt ${contact.name}`}
-                    >
-                      Obriši
-                    </button>
-                  </div>
-                </div>
+            {contacts.length === 0 && !editing ? (
+              <div className="text-center py-12 px-4">
+                <svg viewBox="0 0 80 80" className="w-20 h-20 mx-auto mb-4 text-primary opacity-25" fill="currentColor">
+                  <circle cx="28" cy="26" r="11"/>
+                  <path d="M6 62 Q28 44 50 62Z"/>
+                  <circle cx="52" cy="26" r="11"/>
+                  <path d="M30 62 Q52 44 74 62Z"/>
+                </svg>
+                <h3 className="text-base font-semibold text-text mb-1">Nemate još kontakata</h3>
+                <p className="text-sm text-text-muted max-w-xs mx-auto">Dodajte čistačicu, sudomaćina ili održavanje da BepoBot može automatski obavijestiti pravu osobu kad gost dolazi ili odlazi.</p>
+                <button
+                  onClick={() => setEditing({ ...EMPTY })}
+                  className="mt-4 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 active:scale-95 transition-all"
+                >
+                  Dodaj prvi kontakt
+                </button>
               </div>
-            ))}
-
-            {contacts.length === 0 && !editing && (
-              <EmptyState
-                icon="👥"
-                title="Nemate još kontakata"
-                description="Dodajte čistačicu, sudomaćina ili održavanje da BepoBot može automatski obavijestiti pravu osobu kad gost dolazi ili odlazi."
-                actionLabel="Dodaj prvi kontakt"
-                onAction={() => setEditing({ ...EMPTY })}
-              />
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {contacts.map(contact => {
+                  const initials = contact.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+                  return (
+                    <div key={contact.id} className="bg-white rounded-2xl border border-border p-4 flex flex-col gap-3">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={`w-14 h-14 rounded-full ${ROLE_COLORS[contact.role]} flex items-center justify-center text-white font-bold text-lg`} aria-hidden="true">
+                          {initials || ROLE_ICONS[contact.role]}
+                        </div>
+                        <div className="text-center min-w-0 w-full">
+                          <div className="font-semibold text-text text-sm truncate">{contact.name}</div>
+                          <div className="text-xs text-text-muted">{ROLE_LABELS[contact.role]}</div>
+                        </div>
+                      </div>
+                      {contact.phone && (
+                        <a
+                          href={`tel:${contact.phone.replace(/\s/g, '')}`}
+                          className="text-primary text-xs font-medium text-center truncate"
+                          aria-label={`Nazovi ${contact.name}`}
+                        >
+                          {contact.phone}
+                        </a>
+                      )}
+                      <div className="flex gap-1.5 mt-auto">
+                        <button
+                          onClick={() => setEditing({ ...contact })}
+                          className="flex-1 text-xs text-primary font-medium py-1.5 rounded-lg hover:bg-primary/5 transition-colors"
+                          aria-label={`Uredi kontakt ${contact.name}`}
+                        >
+                          Uredi
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(contact.id)}
+                          className="flex-1 text-xs text-red-500 font-medium py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                          aria-label={`Obriši kontakt ${contact.name}`}
+                        >
+                          Obriši
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
 
             {!editing && (

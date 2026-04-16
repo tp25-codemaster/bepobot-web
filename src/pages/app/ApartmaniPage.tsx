@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import AppShell from '../../components/app/AppShell'
-import EmptyState from '../../components/app/EmptyState'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
@@ -126,69 +125,85 @@ export default function ApartmaniPage() {
           </div>
         ) : (
           <>
-            {apartments.map(apt => (
-              <div key={apt.id} className="bg-white rounded-xl border border-border p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-text">{apt.name}</h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditing({ ...apt })}
-                      className="text-xs text-primary font-medium"
-                      aria-label={`Uredi apartman ${apt.name}`}
-                    >
-                      Uredi
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirmId(apt.id)}
-                      className="text-xs text-red-500 font-medium"
-                      aria-label={`Obriši apartman ${apt.name}`}
-                    >
-                      Obriši
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-2 text-sm">
-                  {apt.evisitor_facility_code ? (
-                    <div className="flex items-center gap-2 text-text-muted">
-                      <span aria-hidden="true">🏛️</span>
-                      <span className="font-mono text-xs">eVisitor: {apt.evisitor_facility_code}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-amber-600">
-                      <span aria-hidden="true">⚠️</span>
-                      <span className="text-xs">eVisitor Facility kod nije postavljen</span>
-                    </div>
-                  )}
-                  {apt.wifi_ssid && (
-                    <div className="flex items-center gap-2 text-text-muted">
-                      <span aria-hidden="true">📶</span>
-                      <span>{apt.wifi_ssid} / {apt.wifi_password}</span>
-                    </div>
-                  )}
-                  {apt.parking && (
-                    <div className="flex items-center gap-2 text-text-muted">
-                      <span aria-hidden="true">🅿️</span>
-                      <span>{apt.parking}</span>
-                    </div>
-                  )}
-                  {apt.rules && (
-                    <div className="flex items-center gap-2 text-text-muted">
-                      <span aria-hidden="true">📋</span>
-                      <span>{apt.rules}</span>
-                    </div>
-                  )}
-                </div>
+            {apartments.length === 0 && !editing ? (
+              <div className="text-center py-12 px-4">
+                <svg viewBox="0 0 80 80" className="w-20 h-20 mx-auto mb-4 text-primary opacity-25" fill="currentColor">
+                  <polygon points="40,8 72,36 8,36"/>
+                  <rect x="10" y="36" width="60" height="36" rx="2"/>
+                  <rect x="31" y="46" width="18" height="26" rx="2" fill="white" opacity="0.6"/>
+                  <rect x="15" y="43" width="13" height="12" rx="1.5" fill="white" opacity="0.6"/>
+                  <rect x="52" y="43" width="13" height="12" rx="1.5" fill="white" opacity="0.6"/>
+                </svg>
+                <h3 className="text-base font-semibold text-text mb-1">Nemate još apartmana</h3>
+                <p className="text-sm text-text-muted max-w-xs mx-auto">Dodajte prvi apartman da počnete koristiti BepoBot. BepoBot će koristiti ove podatke za check-in info, eVisitor prijavu i koordinaciju čišćenja.</p>
+                <button
+                  onClick={() => setEditing({ ...EMPTY })}
+                  className="mt-4 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 active:scale-95 transition-all"
+                >
+                  Dodaj prvi apartman
+                </button>
               </div>
-            ))}
-
-            {apartments.length === 0 && !editing && (
-              <EmptyState
-                icon="🏠"
-                title="Nemate još apartmana"
-                description="Dodajte prvi apartman da počnete koristiti BepoBot. BepoBot će koristiti ove podatke za check-in info, eVisitor prijavu i koordinaciju čišćenja."
-                actionLabel="Dodaj prvi apartman"
-                onAction={() => setEditing({ ...EMPTY })}
-              />
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {apartments.map(apt => (
+                  <div key={apt.id} className="bg-white rounded-2xl border border-border overflow-hidden flex flex-col">
+                    {/* Cover placeholder */}
+                    <div className="h-24 bg-gradient-to-br from-primary/20 via-primary/10 to-indigo-100 flex items-center justify-center flex-shrink-0">
+                      <svg viewBox="0 0 48 48" className="w-12 h-12 text-primary/40" fill="currentColor">
+                        <polygon points="24,5 43,21 5,21"/>
+                        <rect x="6" y="21" width="36" height="22" rx="1.5"/>
+                        <rect x="18" y="28" width="12" height="15" rx="1.5" fill="white" opacity="0.7"/>
+                        <rect x="9" y="26" width="8" height="7" rx="1" fill="white" opacity="0.7"/>
+                        <rect x="31" y="26" width="8" height="7" rx="1" fill="white" opacity="0.7"/>
+                      </svg>
+                    </div>
+                    <div className="p-3 flex flex-col gap-2 flex-1">
+                      <h3 className="font-semibold text-text text-sm leading-tight">{apt.name}</h3>
+                      <div className="space-y-1 flex-1">
+                        {apt.evisitor_facility_code ? (
+                          <div className="flex items-center gap-1.5 text-text-muted">
+                            <span className="text-xs" aria-hidden="true">🏛️</span>
+                            <span className="font-mono text-[10px] truncate">{apt.evisitor_facility_code}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-amber-600">
+                            <span className="text-xs" aria-hidden="true">⚠️</span>
+                            <span className="text-[10px]">Facility kod nije set</span>
+                          </div>
+                        )}
+                        {apt.wifi_ssid && (
+                          <div className="flex items-center gap-1.5 text-text-muted">
+                            <span className="text-xs" aria-hidden="true">📶</span>
+                            <span className="text-xs truncate">{apt.wifi_ssid}</span>
+                          </div>
+                        )}
+                        {apt.parking && (
+                          <div className="flex items-center gap-1.5 text-text-muted">
+                            <span className="text-xs" aria-hidden="true">🅿️</span>
+                            <span className="text-xs truncate">{apt.parking}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-1.5 mt-2">
+                        <button
+                          onClick={() => setEditing({ ...apt })}
+                          className="flex-1 text-xs text-primary font-medium py-1.5 rounded-lg hover:bg-primary/5 transition-colors"
+                          aria-label={`Uredi apartman ${apt.name}`}
+                        >
+                          Uredi
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(apt.id)}
+                          className="flex-1 text-xs text-red-500 font-medium py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                          aria-label={`Obriši apartman ${apt.name}`}
+                        >
+                          Obriši
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
 
             {!editing && (
