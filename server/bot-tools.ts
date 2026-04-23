@@ -401,11 +401,6 @@ export async function executeNotifyCleaner(
     return { success: false, error: 'Nema čistačica s emailom u kontaktima' }
   }
 
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) {
-    return { success: false, error: 'RESEND_API_KEY nije konfiguriran' }
-  }
-
   const apt = reservation.apartments as { name?: string } | null
   const aptName = apt?.name || '(nepoznat apartman)'
   const guestLabel = (reservation.guest_name as string) || '(gost)'
@@ -413,14 +408,31 @@ export async function executeNotifyCleaner(
   const checkIn = (reservation.check_in as string) || '?'
   const checkOut = (reservation.check_out as string) || '?'
 
+  const cleanerList = cleaners.map((c) => ({
+    name: c.name as string,
+    email: c.email as string,
+  }))
+
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    // Bez Resend — vrati podatke čistačice da bot može korisniku reći koga treba kontaktirati
+    return {
+      success: true,
+      email_sent: false,
+      manual: true,
+      cleaners: cleanerList,
+      message: `Čišćenje za ${aptName}: gost ${guestLabel} (${guestCount} os.), check-in ${checkIn}, check-out ${checkOut}.`,
+    }
+  }
+
   const resend = new Resend(apiKey)
   const notified: string[] = []
 
-  for (const cleaner of cleaners) {
+  for (const cleaner of cleanerList) {
     try {
       await resend.emails.send({
         from: 'BepoBot <noreply@bepobot.com>',
-        to: cleaner.email as string,
+        to: cleaner.email,
         subject: `Čišćenje apartmana: ${aptName} — check-out ${checkOut}`,
         html: `<p>Pozdrav ${cleaner.name},</p>
 <p>Molimo pripremi apartman <strong>${aptName}</strong>:</p>
@@ -432,7 +444,7 @@ export async function executeNotifyCleaner(
 <p>Apartman treba biti spreman do dana check-ina.</p>
 <p>— BepoBot</p>`,
       })
-      notified.push(cleaner.name as string)
+      notified.push(cleaner.name)
     } catch {
       /* best effort — nastavi s ostalima */
     }
@@ -441,7 +453,7 @@ export async function executeNotifyCleaner(
   if (notified.length === 0) {
     return { success: false, error: 'Slanje emaila nije uspjelo ni jednoj čistačici' }
   }
-  return { success: true, notified }
+  return { success: true, email_sent: true, notified }
 }
 
 /** Odbij pending rezervaciju — oznaci kao rejected. */
@@ -607,8 +619,9 @@ Kad korisnik kaze "obavijesti čistačicu", "javi cleaneru", "pošalji čistači
 1. Identificiraj rezervaciju iz TRENUTNE REZERVACIJE liste po imenu gosta ili apartmanu.
 2. Ako ima vise rezervacija, pitaj za koju.
 3. OBAVEZNO zovi tool notify_cleaner s reservation_id — NE smijes samo reci "slanjem" bez poziva toola.
-4. Nakon tool poziva saopci kome je email poslan (tool vraca listu notified).
-5. Ako tool vrati grešku (nema čistačica s emailom, itd.), saopci to korisniku.
+4. Ako tool vrati email_sent=true, saopci kome je email poslan (notified lista).
+5. Ako tool vrati manual=true (nema email integracije), ispiši podatke čistačice (ime + email iz cleaners liste) i poruku iz message polja da korisnik može kontaktirati ručno.
+6. Ako tool vrati grešku (nema čistačica s emailom, itd.), saopci to korisniku.
 
 Ako korisnik pita o rezervacijama, odgovori na temelju gornjih lista. Ne izmisljaj podatke.
 Za sve ostalo (chit-chat, pitanja o BepoBot-u), odgovori normalno bez pozivanja toola.`
