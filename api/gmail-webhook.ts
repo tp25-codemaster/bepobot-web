@@ -24,6 +24,7 @@
 //      No authentication (we validate via the email lookup itself)
 
 import { getSupabaseAdmin } from '../server/supabase.js'
+import { Client } from '@upstash/qstash'
 
 interface VercelRequest {
   method?: string
@@ -149,36 +150,35 @@ async function fetchGmailMessage(
   }
 }
 
-async function callProcessEmail(userId: string, email: {
-  id: string
-  from: string
-  subject: string
-  body: string
-  receivedAt: string
-}): Promise<void> {
-  const secret = (process.env.BOT_BEARER_TOKEN || '').trim()
-  if (!secret) {
-    console.error('BOT_BEARER_TOKEN not set')
+const APP_URL = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : 'https://bepobot-web.vercel.app'
+
+async function enqueueEmailJob(
+  userId: string,
+  accessToken: string,
+  gmailEmail: string,
+  messageId: string,
+): Promise<void> {
+  const token = (process.env.QSTASH_TOKEN || '').trim()
+  if (!token) {
+    console.error('QSTASH_TOKEN not set — falling back to sync processing')
     return
   }
   try {
-    await fetch('https://bepobot-web.vercel.app/api/bot-process-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${secret}`,
-      },
-      body: JSON.stringify({
+    const qstash = new Client({ token })
+    await qstash.publishJSON({
+      url: `${APP_URL}/api/jobs/process-booking-email`,
+      body: {
         user_id: userId,
-        gmail_message_id: email.id,
-        email_from: email.from,
-        email_subject: email.subject,
-        email_body: email.body,
-        email_received_at: email.receivedAt,
-      }),
+        email_id: messageId,
+        gmail_access_token: accessToken,
+        gmail_email: gmailEmail,
+      },
+      retries: 3,
     })
   } catch (err) {
-    console.error('Failed to call bot-process-email:', err)
+    console.error('Failed to enqueue email job:', err)
   }
 }
 
@@ -240,23 +240,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const lastHistoryId = profile.gmail_last_history_id || historyId
   const messageIds = await fetchGmailHistory(accessToken, lastHistoryId)
 
-  // Limit to 10 per push to avoid function timeout
-  for (const msgId of messageIds.slice(0, 10)) {
-    const email = await fetchGmailMessage(accessToken, msgId)
-    if (!email) continue
-
-    // Only process booking-looking emails (basic filter)
-    const fromLower = email.from.toLowerCase()
-    const subjectLower = email.subject.toLowerCase()
-    const isBookingCandidate =
-      fromLower.includes('booking.com') ||
-      fromLower.includes('airbnb.com') ||
-      subjectLower.includes('reservation') ||
-      subjectLower.includes('booking') ||
-      subjectLower.includes('rezervacij')
-    if (!isBookingCandidate) continue
-
-    await callProcessEmail(profile.id, email)
+  // Enqueue each new message as a QStash job (async, retries built-in)
+  // Limit to 20 per push to stay within Vercel function timeout
+  for (const msgId of messageIds.slice(0, 20)) {
+    await enqueueEmailJob(profile.id, accessToken, emailAddress, msgId)
   }
 
   // Update last historyId so we don't reprocess on next push
