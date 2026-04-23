@@ -90,4 +90,7 @@ export const LIMITS = {
   // IP-scoped: public endpoints
   PUBLIC: { requests: 60, window: '1m' as Duration },
   PUBLIC_STRICT: { requests: 10, window: '1m' as Duration },
+  // Token-scoped: per reservation token (brute-force protection)
+  PUBLIC_TOKEN: { requests: 30, window: '1m' as Duration },
+  PUBLIC_TOKEN_STRICT: { requests: 5, window: '1m' as Duration },
 } as const

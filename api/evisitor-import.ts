@@ -47,6 +47,10 @@ function httpsRequest(opts: https.RequestOptions, body?: string): Promise<HttpsR
 const HOST = 'www.evisitor.hr'
 const BASE = '/eVisitorRhetos_API'
 
+function escapeIlike(s: string): string {
+  return s.replace(/[%_\\]/g, '\\$&')
+}
+
 // Parse Microsoft /Date(timestamp+offset)/ format
 function parseMsDate(d: string | null): string | null {
   if (!d) return null
@@ -196,8 +200,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('reservations')
       .select('id')
       .eq('user_id', user.id)
-      .ilike('tourist_name', touristName)
-      .ilike('tourist_surname', touristSurname)
+      .ilike('tourist_name', escapeIlike(touristName))
+      .ilike('tourist_surname', escapeIlike(touristSurname))
       .eq('check_in', checkIn)
       .limit(1)
 
@@ -229,7 +233,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
 
     if (insertErr) {
-      errors++
+      // 23505 = unique_violation — concurrent import inserted the same record
+      if ((insertErr as unknown as { code?: string }).code === '23505') {
+        duplicates++
+      } else {
+        errors++
+      }
     } else {
       imported++
     }

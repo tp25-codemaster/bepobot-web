@@ -22,6 +22,10 @@ const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1/users/me'
 
 // Regex patterns
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g
+
+function escapeIlike(s: string): string {
+  return s.replace(/[%_\\]/g, '\\$&')
+}
 const PHONE_RE = /(?:\+385|00385|0)[\s.-]?(?:9[1-9]|[2-5]\d)[\s.-]?\d{3}[\s.-]?\d{3,4}/g
 
 async function gmailFetch(url: string, token: string): Promise<Response> {
@@ -181,8 +185,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('reservations')
         .update(updates)
         .eq('user_id', user.id)
-        .ilike('tourist_name', g.name)
-        .ilike('tourist_surname', g.surname)
+        .ilike('tourist_name', escapeIlike(g.name))
+        .ilike('tourist_surname', escapeIlike(g.surname))
     }
   }
 

@@ -71,6 +71,13 @@ export default async function handler(
     return
   }
 
+  // Per-token rate limit — prevents brute-force from multiple IPs
+  const rtl = await checkRateLimit('reservation-public-token', token, LIMITS.PUBLIC_TOKEN)
+  if (!rtl.allowed) {
+    res.status(429).json({ success: false, error: 'Too many requests' })
+    return
+  }
+
   const admin = getSupabaseAdmin()
   const { data, error } = await admin
     .from('reservations')

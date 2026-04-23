@@ -93,6 +93,13 @@ export default async function handler(
     return
   }
 
+  // Per-token rate limit — prevents repeated submissions from different IPs
+  const rtl = await checkRateLimit('reservation-submit-token', token, LIMITS.PUBLIC_TOKEN_STRICT)
+  if (!rtl.allowed) {
+    res.status(429).json({ success: false, error: 'Too many requests' })
+    return
+  }
+
   // CSRF validation — token must match the HMAC derived from the reservation token
   const csrfToken = payload.csrf_token?.trim()
   if (!csrfToken || csrfToken !== deriveCsrfToken(token)) {
