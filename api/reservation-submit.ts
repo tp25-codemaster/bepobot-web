@@ -7,6 +7,7 @@
 import { getSupabaseAdmin } from '../server/supabase.js'
 import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
 import { setCorsHeaders } from './_lib/cors.js'
+import { deriveCsrfToken } from './reservation-public.js'
 
 interface VercelRequest {
   method?: string
@@ -22,6 +23,7 @@ interface VercelResponse {
 
 interface GuestPayload {
   token?: string
+  csrf_token?: string
   tourist_name?: string
   tourist_surname?: string
   gender?: 'muški' | 'ženski'
@@ -88,6 +90,13 @@ export default async function handler(
   const token = payload.token?.trim()
   if (!token) {
     res.status(400).json({ success: false, error: 'Missing token' })
+    return
+  }
+
+  // CSRF validation — token must match the HMAC derived from the reservation token
+  const csrfToken = payload.csrf_token?.trim()
+  if (!csrfToken || csrfToken !== deriveCsrfToken(token)) {
+    res.status(403).json({ success: false, error: 'Invalid or missing CSRF token' })
     return
   }
 

@@ -4,9 +4,20 @@
 // o rezervaciji. Čita kroz service role (bypass RLS) ali vraća samo
 // sigurne podatke.
 
+import { createHmac } from 'node:crypto'
 import { getSupabaseAdmin } from '../server/supabase.js'
 import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
 import { setCorsHeaders } from './_lib/cors.js'
+
+function getCsrfSecret(): string {
+  return process.env.CSRF_SECRET || process.env.CREDENTIAL_ENCRYPTION_KEY || 'csrf-dev-fallback'
+}
+
+export function deriveCsrfToken(reservationToken: string): string {
+  return createHmac('sha256', getCsrfSecret())
+    .update(reservationToken)
+    .digest('hex')
+}
 
 interface VercelRequest {
   method?: string
@@ -85,6 +96,9 @@ export default async function handler(
   else if (data.tourist_name) guestStatus = 'completed'
   else guestStatus = 'pending'
 
+  // Only reveal sensitive access info after the guest has submitted their data
+  const guestHasSubmitted = !!data.completed_at
+
   // Fetch apartment info (safe fields only)
   let apartmentName: string | null = null
   let wifi: { ssid: string | null; password: string | null } | null = null
@@ -101,17 +115,25 @@ export default async function handler(
       .single()
     if (apt) {
       apartmentName = apt.name
-      wifi = apt.wifi_ssid
-        ? { ssid: apt.wifi_ssid, password: apt.wifi_password }
-        : null
-      parking = apt.parking
+      // wifi, parking and checkin_instructions are only returned after guest submits personal data
+      if (guestHasSubmitted) {
+        wifi = apt.wifi_ssid
+          ? { ssid: apt.wifi_ssid, password: apt.wifi_password }
+          : null
+        parking = apt.parking
+        checkinInstructions = apt.checkin_instructions
+      }
       rules = apt.rules
-      checkinInstructions = apt.checkin_instructions
     }
   }
 
+  // CSRF token derived from reservation token — stateless, no Redis needed.
+  // Guest must echo this back in the POST body of reservation-submit.
+  const csrfToken = deriveCsrfToken(token)
+
   res.status(200).json({
     success: true,
+    csrf_token: csrfToken,
     reservation: {
       host_label: data.guest_name,
       stay_from: data.check_in,

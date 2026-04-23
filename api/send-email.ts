@@ -34,6 +34,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing required fields: to, subject, html' })
   }
 
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return res.status(400).json({ error: 'Invalid email address' })
+  }
+
   try {
     const { data, error } = await resend.emails.send({
       from: 'BepoBot <noreply@bepobot.hr>',
