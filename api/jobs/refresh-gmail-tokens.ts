@@ -24,6 +24,10 @@ async function refreshUserToken(
   userId: string,
   encryptedRefreshToken: string
 ): Promise<'ok' | 'revoked' | 'error'> {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    console.error('GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not configured — skipping refresh')
+    return 'error'
+  }
   try {
     const refreshToken = safeDecrypt(encryptedRefreshToken)
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -77,9 +81,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Vercel cron protection
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    console.error('CRON_SECRET not configured')
+    res.status(500).json({ error: 'Server misconfiguration' })
+    return
+  }
   const authHeader = (req.headers.authorization ||
     req.headers.Authorization) as string | undefined
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     res.status(401).json({ error: 'Unauthorized' })
     return
   }

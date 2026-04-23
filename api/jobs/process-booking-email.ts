@@ -3,11 +3,12 @@
 // QStash worker — fetcha email sa Gmail API, parsira ga s Anthropic Claude Haiku
 // (prompt caching na system promptu), dedupira i insertira u pending_reservations.
 //
-// Payload: { user_id, email_id, gmail_access_token, gmail_email }
-// Caller: Cloudflare Worker (Gmail Push Notifications → QStash → ovdje)
+// Payload: { user_id, email_id }  — token se fetcha iz DB, nikad ne prolazi kroz QStash
+// Caller: gmail-webhook.ts (Gmail Push Notifications → QStash → ovdje)
 
 import { getSupabaseAdmin } from '../../server/supabase.js'
 import { verifyQStash } from '../_lib/qstash.js'
+import { safeDecrypt } from '../../server/crypto.js'
 
 interface VercelRequest {
   method?: string
@@ -23,8 +24,6 @@ interface VercelResponse {
 interface WorkerPayload {
   user_id: string
   email_id: string
-  gmail_access_token: string
-  gmail_email: string
 }
 
 interface GmailPart {
@@ -211,14 +210,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const payload = (req.body || {}) as Partial<WorkerPayload>
-  const { user_id, email_id, gmail_access_token } = payload
+  const { user_id, email_id } = payload
 
-  if (!user_id || !email_id || !gmail_access_token) {
-    res.status(400).json({ error: 'Missing required fields: user_id, email_id, gmail_access_token' })
+  if (!user_id || !email_id) {
+    res.status(400).json({ error: 'Missing required fields: user_id, email_id' })
     return
   }
 
   const admin = getSupabaseAdmin()
+
+  // Fetch access token from DB (never passed in payload)
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('gmail_access_token')
+    .eq('id', user_id)
+    .single()
+
+  if (!profile?.gmail_access_token) {
+    res.status(400).json({ error: 'No Gmail access token for user' })
+    return
+  }
+
+  const gmail_access_token = safeDecrypt(profile.gmail_access_token)
 
   // 1. Dedup — provjeri je li email već procesiran
   const { data: existing } = await admin
@@ -236,8 +249,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 2. Fetch email sa Gmail API
   const msg = await fetchGmailMessage(email_id, gmail_access_token)
   if (!msg) {
-    // Return 200 — QStash ne treba retryati, Gmail fetch error je transient
-    res.status(200).json({ success: false, error: 'Gmail fetch failed' })
+    // Return 500 so QStash retries — Gmail fetch failures are transient
+    res.status(500).json({ success: false, error: 'Gmail fetch failed' })
     return
   }
 
@@ -252,7 +265,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { parsed, error: parseErr } = await parseWithAnthropic(from, subject, body, receivedAt)
 
   if (!parsed) {
-    res.status(200).json({ success: false, error: parseErr || 'Parse failed' })
+    // Return 500 so QStash retries on transient Anthropic errors (rate limit, timeout, 5xx).
+    // Retries are bounded by QStash retry limit (3), so permanent failures don't loop forever.
+    res.status(500).json({ success: false, error: parseErr || 'Parse failed' })
     return
   }
 

@@ -18,10 +18,10 @@
 //   2. Give Gmail publish permission on the topic
 //      Service account: gmail-api-push@system.gserviceaccount.com
 //      Role: Pub/Sub Publisher
-//   3. Create Pub/Sub subscription (push):
-//      Endpoint: https://bepobot-web.vercel.app/api/gmail-webhook
+//   3. Set env var: PUBSUB_WEBHOOK_SECRET=<random 32+ char secret>
+//   4. Create Pub/Sub subscription (push):
+//      Endpoint: https://bepobot-web.vercel.app/api/gmail-webhook?token=<PUBSUB_WEBHOOK_SECRET>
 //      Ack deadline: 600s
-//      No authentication (we validate via the email lookup itself)
 
 import { getSupabaseAdmin } from '../server/supabase.js'
 import { Client } from '@upstash/qstash'
@@ -29,6 +29,7 @@ import { Client } from '@upstash/qstash'
 interface VercelRequest {
   method?: string
   body: unknown
+  query: { [key: string]: string | string[] | undefined }
   headers: { [key: string]: string | string[] | undefined }
 }
 interface VercelResponse {
@@ -156,8 +157,6 @@ const APP_URL = process.env.VERCEL_URL
 
 async function enqueueEmailJob(
   userId: string,
-  accessToken: string,
-  gmailEmail: string,
   messageId: string,
 ): Promise<void> {
   const token = (process.env.QSTASH_TOKEN || '').trim()
@@ -172,8 +171,6 @@ async function enqueueEmailJob(
       body: {
         user_id: userId,
         email_id: messageId,
-        gmail_access_token: accessToken,
-        gmail_email: gmailEmail,
       },
       retries: 3,
     })
@@ -185,6 +182,19 @@ async function enqueueEmailJob(
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+  // Validate shared secret — set PUBSUB_WEBHOOK_SECRET and include in subscription URL as ?token=<secret>
+  const webhookSecret = (process.env.PUBSUB_WEBHOOK_SECRET || '').trim()
+  if (!webhookSecret) {
+    console.error('PUBSUB_WEBHOOK_SECRET not configured')
+    res.status(500).end()
+    return
+  }
+  const incomingToken = (req.query.token as string | undefined) || ''
+  if (incomingToken !== webhookSecret) {
+    res.status(401).end()
     return
   }
 
@@ -232,7 +242,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const accessToken = await refreshToken(profile.id)
   if (!accessToken) {
     console.error(`Failed to refresh token for ${profile.id}`)
-    res.status(204).end()
+    // Return 500 so Pub/Sub retries. If token was revoked, gmail-refresh already set
+    // gmail_connected=false, so the next retry will find no profile and ACK cleanly.
+    res.status(500).end()
     return
   }
 
@@ -243,7 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Enqueue each new message as a QStash job (async, retries built-in)
   // Limit to 20 per push to stay within Vercel function timeout
   for (const msgId of messageIds.slice(0, 20)) {
-    await enqueueEmailJob(profile.id, accessToken, emailAddress, msgId)
+    await enqueueEmailJob(profile.id, msgId)
   }
 
   // Update last historyId so we don't reprocess on next push

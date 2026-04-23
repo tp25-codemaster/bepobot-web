@@ -19,8 +19,8 @@ interface VercelResponse {
   end: () => void
 }
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim() || '590860880888-aq0jlqq7en5klatohs37ec7acuj0t2se.apps.googleusercontent.com'
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET?.trim() || ''
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim()
+const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim()
 const API_SECRET = (process.env.EMAIL_API_SECRET || '').trim()
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -28,8 +28,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
 
+  if (!API_SECRET) {
+    console.error('EMAIL_API_SECRET not configured')
+    res.status(500).json({ error: 'Server misconfiguration' }); return
+  }
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    console.error('GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not configured')
+    res.status(500).json({ error: 'Server misconfiguration' }); return
+  }
+
   const { user_id, secret } = req.body as { user_id?: string; secret?: string }
-  if (!API_SECRET || secret !== API_SECRET) {
+  if (secret !== API_SECRET) {
     res.status(401).json({ error: 'Unauthorized' }); return
   }
   if (!user_id) {

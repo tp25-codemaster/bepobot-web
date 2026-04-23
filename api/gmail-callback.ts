@@ -4,6 +4,7 @@
 // Exchange code za tokene, spremi u Supabase profiles.
 
 import { getUserSupabase, getCurrentUser } from '../server/supabase.js'
+import { encrypt } from '../server/crypto.js'
 
 interface VercelRequest {
   method?: string
@@ -18,14 +19,19 @@ interface VercelResponse {
   end: () => void
 }
 
-const GOOGLE_CLIENT_ID = '590860880888-aq0jlqq7en5klatohs37ec7acuj0t2se.apps.googleusercontent.com'
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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'
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
 const REDIRECT_URI = 'https://bepobot-web.vercel.app/api/gmail-callback'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const code = req.query.code as string
   const state = req.query.state as string // This is the Supabase JWT
   const error = req.query.error as string
+
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    res.redirect('/app/postavke?gmail=error&reason=oauth_not_configured')
+    return
+  }
 
   if (error) {
     res.redirect('/app/postavke?gmail=error&reason=' + encodeURIComponent(error))
@@ -89,12 +95,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  // Save tokens to profiles table
+  // Save tokens to profiles table (encrypted at rest)
   const { error: dbError } = await supabase
     .from('profiles')
     .update({
-      gmail_access_token: tokens.access_token,
-      gmail_refresh_token: tokens.refresh_token || null,
+      gmail_access_token: encrypt(tokens.access_token),
+      gmail_refresh_token: tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
       gmail_connected: true,
       gmail_email: gmailEmail,
     })

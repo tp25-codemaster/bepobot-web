@@ -12,6 +12,7 @@
 // QStash is serverless — no Redis instance needed. Free tier: 500 msgs/day.
 
 import { Client, Receiver } from '@upstash/qstash'
+import { randomUUID } from 'node:crypto'
 import { getSupabaseAdmin } from '../../server/supabase.js'
 
 const QSTASH_TOKEN = (process.env.QSTASH_TOKEN || '').trim()
@@ -59,11 +60,21 @@ export async function enqueueJob(
   payload: Record<string, unknown> = {},
 ): Promise<string> {
   const supabase = getSupabaseAdmin()
+  const jobId = randomUUID()
+  const workerUrl = `${APP_URL}/api/jobs/${type.replace(/_/g, '-')}-worker`
 
-  // 1. Create job row in DB
+  // 1. Publish to QStash first — if this throws, no DB row is created (clean state)
+  await getClient().publishJSON({
+    url: workerUrl,
+    body: { jobId },
+    retries: 3,
+  })
+
+  // 2. Create DB row only after QStash has accepted the job
   const { data: job, error } = await supabase
     .from('background_jobs')
     .insert({
+      id: jobId,
       user_id: userId,
       type,
       status: 'pending',
@@ -73,24 +84,10 @@ export async function enqueueJob(
     .single()
 
   if (error || !job) {
-    throw new Error(`Failed to create job row: ${error?.message}`)
-  }
-
-  // 2. Send to QStash
-  const workerUrl = `${APP_URL}/api/jobs/${type.replace(/_/g, '-')}-worker`
-  try {
-    await getClient().publishJSON({
-      url: workerUrl,
-      body: { jobId: job.id },
-      retries: 3,
-    })
-  } catch (err) {
-    // Mark job as failed so user sees it
-    await supabase
-      .from('background_jobs')
-      .update({ status: 'failed', error: 'QStash publish failed' })
-      .eq('id', job.id)
-    throw err
+    // QStash accepted the job but DB insert failed — worker will get null from getJob()
+    // and return a non-retryable error, so retries are bounded.
+    console.error(`QStash publish succeeded but DB insert failed for job ${jobId}: ${error?.message}`)
+    throw new Error(`Failed to create job record: ${error?.message}`)
   }
 
   return job.id

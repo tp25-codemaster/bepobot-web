@@ -19,10 +19,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  if (!API_SECRET) {
+    console.error('EMAIL_API_SECRET not configured')
+    return res.status(500).json({ error: 'Server misconfiguration' })
+  }
+
   const { to, subject, html, replyTo, secret } = req.body as EmailRequest
 
-  // Auth check
-  if (!API_SECRET || secret !== API_SECRET) {
+  if (secret !== API_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
