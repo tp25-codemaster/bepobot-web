@@ -29,6 +29,11 @@ function getRedis(): Redis | null {
   return redis
 }
 
+/** Exposes the shared Redis client for use outside rate limiting (e.g. OAuth state). */
+export function getRedisClient(): Redis | null {
+  return getRedis()
+}
+
 type Duration = `${number} ${'s' | 'm' | 'h' | 'd'}` | `${number}${'s' | 'm' | 'h' | 'd'}`
 
 /**
@@ -66,9 +71,9 @@ export async function checkRateLimit(
       reset: result.reset,
     }
   } catch (err) {
-    // If Redis fails, fail open (allow request) — better than blocking users
-    console.error('Ratelimit error:', err)
-    return { allowed: true, remaining: 999, reset: 0 }
+    // Redis is configured but unavailable — fail closed to prevent rate-limit bypass
+    console.error('Ratelimit error (Redis unavailable):', err)
+    return { allowed: false, remaining: 0, reset: 0 }
   }
 }
 

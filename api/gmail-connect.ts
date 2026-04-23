@@ -2,6 +2,13 @@
 //
 // Redirecta korisnika na Google OAuth consent screen.
 // Token se šalje kao query param jer browser redirect ne može slati headers.
+//
+// OAuth state: random 32-byte hex token stored in Redis (TTL 1h).
+// In callback, state is looked up in Redis to retrieve the original JWT.
+// Falls back to JWT-as-state if Redis is not configured (dev only).
+
+import { randomBytes } from 'node:crypto'
+import { getRedisClient } from './_lib/ratelimit.js'
 
 interface VercelRequest {
   method?: string
@@ -37,7 +44,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  // Build Google OAuth URL
+  // Generate a random state token and store the JWT in Redis so the callback
+  // can retrieve it. This prevents the JWT from appearing in browser history
+  // or server logs as the OAuth state parameter.
+  let oauthState: string
+  const redisClient = getRedisClient()
+  if (redisClient) {
+    oauthState = randomBytes(32).toString('hex')
+    await redisClient.setex(`oauth:state:${oauthState}`, 3600, token)
+  } else {
+    // Dev fallback: no Redis configured — state is the JWT itself
+    console.warn('[gmail-connect] Redis not configured — using JWT as OAuth state (dev only)')
+    oauthState = token
+  }
+
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
@@ -45,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     scope: 'https://www.googleapis.com/auth/gmail.readonly email',
     access_type: 'offline',
     prompt: 'consent',
-    state: token, // Pass JWT as state so callback can identify the user
+    state: oauthState,
   })
 
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`)

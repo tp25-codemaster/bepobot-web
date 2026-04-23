@@ -22,8 +22,9 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET?.trim() || ''
 
 async function refreshUserToken(
   userId: string,
-  encryptedRefreshToken: string
+  encryptedRefreshToken: string | null
 ): Promise<'ok' | 'revoked' | 'error'> {
+  if (!encryptedRefreshToken) return 'error'
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     console.error('GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not configured — skipping refresh')
     return 'error'
@@ -118,8 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   for (const user of users || []) {
-    if (!user.gmail_refresh_token) continue
-    const outcome = await refreshUserToken(user.id, user.gmail_refresh_token as string)
+    const outcome = await refreshUserToken(user.id, user.gmail_refresh_token as string | null)
     if (outcome === 'ok') results.refreshed++
     else if (outcome === 'revoked') results.revoked++
     else results.errors++

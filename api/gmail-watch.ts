@@ -27,10 +27,8 @@ interface VercelResponse {
   end: () => void
 }
 
-// Pub/Sub topic name — set via env var
-const GMAIL_PUBSUB_TOPIC =
-  process.env.GMAIL_PUBSUB_TOPIC ||
-  'projects/n8n-invoice-484123/topics/gmail-webhook-topic'
+// Pub/Sub topic name — must be set via env var (e.g. projects/<id>/topics/<name>)
+const GMAIL_PUBSUB_TOPIC = (process.env.GMAIL_PUBSUB_TOPIC || '').trim()
 
 async function refreshAccessToken(userId: string): Promise<string | null> {
   const secret = (process.env.EMAIL_API_SECRET || '').trim()
@@ -81,6 +79,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res, 'POST, GET, OPTIONS')
 
   if (req.method === 'OPTIONS') { res.status(204).end(); return }
+
+  if (!GMAIL_PUBSUB_TOPIC) {
+    console.error('GMAIL_PUBSUB_TOPIC not configured')
+    res.status(500).json({ error: 'GMAIL_PUBSUB_TOPIC not configured' })
+    return
+  }
 
   const authHeader = (req.headers.authorization || req.headers.Authorization) as string | undefined
   const botToken = (process.env.BOT_BEARER_TOKEN || '').trim()

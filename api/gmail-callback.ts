@@ -1,10 +1,12 @@
-// GET /api/gmail-callback?code=<auth_code>&state=<jwt>
+// GET /api/gmail-callback?code=<auth_code>&state=<oauth_state>
 //
 // Google redirecta ovdje nakon OAuth consent.
+// State se validira iz Redisa (gdje gmail-connect sprema JWT s TTL 1h).
 // Exchange code za tokene, spremi u Supabase profiles.
 
 import { getUserSupabase, getCurrentUser } from '../server/supabase.js'
 import { encrypt } from '../server/crypto.js'
+import { getRedisClient } from './_lib/ratelimit.js'
 
 interface VercelRequest {
   method?: string
@@ -41,6 +43,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!code || !state) {
     res.redirect('/app/postavke?gmail=error&reason=missing_params')
     return
+  }
+
+  // Resolve JWT from OAuth state: look up in Redis (set by gmail-connect with TTL 1h).
+  // GETDEL is atomic — consumes the state so it can't be replayed.
+  // Falls back to treating state as JWT directly if Redis is not configured (dev only).
+  let jwtToken: string
+  const redisClient = getRedisClient()
+  if (redisClient) {
+    const stored = await redisClient.getdel(`oauth:state:${state}`) as string | null
+    if (!stored) {
+      res.redirect('/app/postavke?gmail=error&reason=invalid_state')
+      return
+    }
+    jwtToken = stored
+  } else {
+    jwtToken = state
   }
 
   // Exchange code for tokens
@@ -82,8 +100,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Not critical, continue without email
   }
 
-  // Get user from JWT (state parameter)
-  const supabase = getUserSupabase(`Bearer ${state}`)
+  // Get user from JWT
+  const supabase = getUserSupabase(`Bearer ${jwtToken}`)
   if (!supabase) {
     res.redirect('/app/postavke?gmail=error&reason=auth')
     return
@@ -118,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await fetch('https://bepobot-web.vercel.app/api/gmail-watch', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${state}`,
+        Authorization: `Bearer ${jwtToken}`,
         'Content-Type': 'application/json',
       },
     })
