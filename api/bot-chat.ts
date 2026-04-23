@@ -17,6 +17,7 @@ import {
   executeCheckInReservation,
   executeConfirmPendingReservation,
   executeRejectPendingReservation,
+  executeNotifyCleaner,
   BOT_TOOLS,
 } from '../server/bot-tools.js'
 import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
@@ -219,6 +220,13 @@ export default async function handler(
           result = { success: false, error: 'pending_id missing' }
         } else {
           result = await executeRejectPendingReservation(adminSupabase, user.id, pendingId)
+        }
+      } else if (toolName === 'notify_cleaner') {
+        const reservationId = args.reservation_id as string | undefined
+        if (!reservationId) {
+          result = { success: false, error: 'reservation_id missing' }
+        } else {
+          result = await executeNotifyCleaner(supabase, user.id, reservationId)
         }
       } else {
         result = { success: false, error: 'Unknown tool' }

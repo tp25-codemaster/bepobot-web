@@ -3,6 +3,7 @@
 // Takes a Supabase client as argument so caller decides auth scope.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { Resend } from 'resend'
 import {
   runEVisitorCheckIn,
   type GuestCheckInInput,
@@ -365,6 +366,84 @@ export async function executeConfirmPendingReservation(
   return { success: true, reservation_id: inserted.id as string }
 }
 
+/** Pošalji email obavijest čistačici/čistačicama za pripremu apartmana. */
+export async function executeNotifyCleaner(
+  supabase: SupabaseClient,
+  userId: string,
+  reservationId: string
+): Promise<{ success: boolean; notified?: string[]; error?: string }> {
+  const { data: reservation, error: resErr } = await supabase
+    .from('reservations')
+    .select(
+      'id, user_id, guest_name, guests_count, check_in, check_out, apartment_id, apartments(name)'
+    )
+    .eq('id', reservationId)
+    .single()
+
+  if (resErr || !reservation) {
+    return { success: false, error: 'Rezervacija ne postoji' }
+  }
+  if (reservation.user_id !== userId) {
+    return { success: false, error: 'Rezervacija ne pripada korisniku' }
+  }
+
+  const { data: cleaners, error: contactErr } = await supabase
+    .from('contacts')
+    .select('id, name, email')
+    .eq('user_id', userId)
+    .eq('role', 'cleaner')
+    .not('email', 'is', null)
+
+  if (contactErr) {
+    return { success: false, error: 'Ne mogu dohvatiti kontakte: ' + contactErr.message }
+  }
+  if (!cleaners || cleaners.length === 0) {
+    return { success: false, error: 'Nema čistačica s emailom u kontaktima' }
+  }
+
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    return { success: false, error: 'RESEND_API_KEY nije konfiguriran' }
+  }
+
+  const apt = reservation.apartments as { name?: string } | null
+  const aptName = apt?.name || '(nepoznat apartman)'
+  const guestLabel = (reservation.guest_name as string) || '(gost)'
+  const guestCount = (reservation.guests_count as number) || 1
+  const checkIn = (reservation.check_in as string) || '?'
+  const checkOut = (reservation.check_out as string) || '?'
+
+  const resend = new Resend(apiKey)
+  const notified: string[] = []
+
+  for (const cleaner of cleaners) {
+    try {
+      await resend.emails.send({
+        from: 'BepoBot <noreply@bepobot.com>',
+        to: cleaner.email as string,
+        subject: `Čišćenje apartmana: ${aptName} — check-out ${checkOut}`,
+        html: `<p>Pozdrav ${cleaner.name},</p>
+<p>Molimo pripremi apartman <strong>${aptName}</strong>:</p>
+<ul>
+  <li>Gost: ${guestLabel} (${guestCount} ${guestCount === 1 ? 'osoba' : 'osobe/a'})</li>
+  <li>Check-in: ${checkIn}</li>
+  <li>Check-out: ${checkOut}</li>
+</ul>
+<p>Apartman treba biti spreman do dana check-ina.</p>
+<p>— BepoBot</p>`,
+      })
+      notified.push(cleaner.name as string)
+    } catch {
+      /* best effort — nastavi s ostalima */
+    }
+  }
+
+  if (notified.length === 0) {
+    return { success: false, error: 'Slanje emaila nije uspjelo ni jednoj čistačici' }
+  }
+  return { success: true, notified }
+}
+
 /** Odbij pending rezervaciju — oznaci kao rejected. */
 export async function executeRejectPendingReservation(
   supabase: SupabaseClient,
@@ -464,6 +543,25 @@ export const BOT_TOOLS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'notify_cleaner',
+      description:
+        'Pošalji email obavijest čistačici (ili svim čistačicama) da pripreme apartman za novu rezervaciju. Koristi kad korisnik kaže "obavijesti čistačicu", "pošalji čistačici", "javi cleaneru", "notify cleaner", "čišćenje", "cleaning", "spremi apartman", "pripremi apartman".',
+      parameters: {
+        type: 'object',
+        properties: {
+          reservation_id: {
+            type: 'string',
+            description:
+              'UUID rezervacije iz liste TRENUTNE REZERVACIJE za koju treba čišćenje',
+          },
+        },
+        required: ['reservation_id'],
+      },
+    },
+  },
 ]
 
 /** Zajednički system prompt s ubacenom listom rezervacija. */
@@ -504,6 +602,13 @@ Kad korisnik kaze "potvrdi", "da", "ok", "dodaj" ili slicno za neku PENDING reze
 
 Kad korisnik kaze "odbij", "ne", "obrisi" za neku PENDING rezervaciju:
 1. Zovi tool reject_pending_reservation s pending_id.
+
+Kad korisnik kaze "obavijesti čistačicu", "javi cleaneru", "pošalji čistačici", "čišćenje", "cleaning", "pripremi apartman" ili slicno vezano uz čišćenje:
+1. Identificiraj rezervaciju iz TRENUTNE REZERVACIJE liste po imenu gosta ili apartmanu.
+2. Ako ima vise rezervacija, pitaj za koju.
+3. OBAVEZNO zovi tool notify_cleaner s reservation_id — NE smijes samo reci "slanjem" bez poziva toola.
+4. Nakon tool poziva saopci kome je email poslan (tool vraca listu notified).
+5. Ako tool vrati grešku (nema čistačica s emailom, itd.), saopci to korisniku.
 
 Ako korisnik pita o rezervacijama, odgovori na temelju gornjih lista. Ne izmisljaj podatke.
 Za sve ostalo (chit-chat, pitanja o BepoBot-u), odgovori normalno bez pozivanja toola.`
