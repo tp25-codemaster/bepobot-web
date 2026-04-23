@@ -58,8 +58,8 @@ interface ParsedBooking {
   confidence?: 'high' | 'medium' | 'low'
 }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-haiku-4-5'
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const MODEL = 'anthropic/claude-haiku-4.5'
 
 const SYSTEM_PROMPT = `Ti si parser koji cita email i odlucuje je li to nova rezervacija za iznajmljivaca apartmana u Hrvatskoj.
 
@@ -77,42 +77,38 @@ Pravila:
 Ne izmisljaj. Ako nesto ne vidis u tekstu, ostavi null.`
 
 const BOOKING_TOOL = {
-  name: 'booking_data',
-  description: 'Vraca strukturirane podatke parsirane iz email-a',
-  input_schema: {
-    type: 'object',
-    properties: {
-      is_booking: { type: 'boolean' },
-      reason_if_not: { type: 'string' },
-      source: { type: 'string', enum: ['booking.com', 'airbnb', 'direct', 'other'] },
-      apartment_name: { type: ['string', 'null'] },
-      guest_name: { type: ['string', 'null'] },
-      guest_surname: { type: ['string', 'null'] },
-      guest_email: { type: ['string', 'null'] },
-      guest_phone: { type: ['string', 'null'] },
-      guest_count: { type: ['integer', 'null'] },
-      check_in_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
-      check_out_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
-      total_price: { type: ['number', 'null'] },
-      currency: { type: ['string', 'null'] },
-      confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+  type: 'function' as const,
+  function: {
+    name: 'booking_data',
+    description: 'Vraca strukturirane podatke parsirane iz email-a',
+    parameters: {
+      type: 'object',
+      properties: {
+        is_booking: { type: 'boolean' },
+        reason_if_not: { type: 'string' },
+        source: { type: 'string', enum: ['booking.com', 'airbnb', 'direct', 'other'] },
+        apartment_name: { type: ['string', 'null'] },
+        guest_name: { type: ['string', 'null'] },
+        guest_surname: { type: ['string', 'null'] },
+        guest_email: { type: ['string', 'null'] },
+        guest_phone: { type: ['string', 'null'] },
+        guest_count: { type: ['integer', 'null'] },
+        check_in_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+        check_out_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+        total_price: { type: ['number', 'null'] },
+        currency: { type: ['string', 'null'] },
+        confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+      },
+      required: ['is_booking'],
     },
-    required: ['is_booking'],
   },
 }
 
-if (!process.env.BOT_BEARER_TOKEN) {
-  // BOT_BEARER_TOKEN rotation: set new value in Vercel env vars, update all callers
-  // (bot-gmail-poll, n8n workflows, Telegram bot) to use the new token, then remove the old one.
-  // There is no grace period — rotating immediately will break in-flight requests.
-  console.warn('[bot-process-email] BOT_BEARER_TOKEN not configured — all requests will be rejected')
-}
-
-async function parseWithAnthropic(
+async function parseWithHaiku(
   payload: EmailPayload
 ): Promise<{ parsed: ParsedBooking | null; error?: string }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return { parsed: null, error: 'ANTHROPIC_API_KEY not set' }
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) return { parsed: null, error: 'OPENROUTER_API_KEY not set' }
 
   const userContent =
     `Email metapodaci:\n` +
@@ -122,38 +118,49 @@ async function parseWithAnthropic(
     `Tijelo emaila:\n${payload.email_body || '(prazno)'}`
 
   try {
-    const res = await fetch(ANTHROPIC_URL, {
+    const res = await fetch(OPENROUTER_URL, {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://bepobot-web-bepo1.vercel.app',
+        'X-Title': 'BepoBot Email Parser',
       },
       body: JSON.stringify({
         model: MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userContent },
+        ],
+        tools: [BOOKING_TOOL],
+        tool_choice: { type: 'function', function: { name: 'booking_data' } },
         max_tokens: 600,
         temperature: 0.1,
-        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: userContent }],
-        tools: [BOOKING_TOOL],
-        tool_choice: { type: 'tool', name: 'booking_data' },
       }),
     })
     const data = (await res.json()) as {
-      content?: Array<{ type: string; input: Record<string, unknown> }>
+      choices?: Array<{
+        message?: {
+          tool_calls?: Array<{ function: { arguments: string } }>
+        }
+      }>
       error?: { message?: string }
     }
     if (!res.ok) {
       return {
         parsed: null,
-        error: 'Anthropic: ' + (data.error?.message || `HTTP ${res.status}`),
+        error: 'LLM: ' + (data.error?.message || `HTTP ${res.status}`),
       }
     }
-    const toolUse = data.content?.find((c) => c.type === 'tool_use')
-    if (!toolUse) {
-      return { parsed: null, error: 'Anthropic did not return tool_use' }
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0]
+    if (!toolCall) {
+      return { parsed: null, error: 'Haiku did not return tool_call' }
     }
-    return { parsed: toolUse.input as ParsedBooking }
+    const args =
+      typeof toolCall.function.arguments === 'string'
+        ? JSON.parse(toolCall.function.arguments)
+        : toolCall.function.arguments
+    return { parsed: args as ParsedBooking }
   } catch (e) {
     return { parsed: null, error: (e as Error).message }
   }
@@ -268,8 +275,8 @@ export default async function handler(
     }
   }
 
-  // 2. Parse s Anthropic (system prompt se cachira od drugog requesta)
-  const { parsed, error: parseErr } = await parseWithAnthropic(payload)
+  // 2. Parse s Haiku
+  const { parsed, error: parseErr } = await parseWithHaiku(payload)
 
   if (!parsed) {
     await admin.from('email_log').insert({
