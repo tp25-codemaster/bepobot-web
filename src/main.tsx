@@ -5,6 +5,7 @@ import * as Sentry from '@sentry/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import { AuthProvider } from './contexts/AuthContext'
+import { LanguageProvider } from './contexts/LanguageContext'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -109,6 +110,7 @@ createRoot(document.getElementById('root')!).render(
     <Sentry.ErrorBoundary fallback={<FallbackUI />}>
     <QueryClientProvider client={queryClient}>
     <BrowserRouter>
+      <LanguageProvider>
       <AuthProvider>
         {/* Skip-to-content link */}
         <a
@@ -173,6 +175,7 @@ createRoot(document.getElementById('root')!).render(
           } />
         </Routes>
       </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
     </QueryClientProvider>
     </Sentry.ErrorBoundary>

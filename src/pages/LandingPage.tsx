@@ -1,11 +1,13 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useLang } from '../hooks/useLang'
 import { supabase } from '../lib/supabase'
 import Navbar from '../components/landing/Navbar'
 import HeroChatDemo from '../components/landing/HeroChatDemo'
 import ProblemSection from '../components/landing/ProblemSection'
 import SolutionSection from '../components/landing/SolutionSection'
 import HowItWorks from '../components/landing/HowItWorks'
+import AppScreenshots from '../components/landing/AppScreenshots'
 import RoiCalculator from '../components/landing/RoiCalculator'
 import Testimonials from '../components/landing/Testimonials'
 import Pricing from '../components/landing/Pricing'
@@ -15,6 +17,7 @@ import Footer from '../components/landing/Footer'
 
 export default function LandingPage() {
   const navigate = useNavigate()
+  const { t } = useLang()
 
   // Handle Supabase auth callback (email confirmation redirect)
   useEffect(() => {
@@ -37,10 +40,13 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] tracking-tight">
-                Vaš apartman radi dok vi uživate.
+                {t('Vaš apartman radi dok vi uživate.', 'Your apartment works while you enjoy.')}
               </h1>
               <p className="mt-6 text-lg sm:text-xl text-white/60 max-w-xl leading-relaxed">
-                AI asistent koji automatizira rezervacije, koordinira čišćenje i brine o gostima — sve putem jedne poruke.
+                {t(
+                  'AI asistent koji automatizira rezervacije, koordinira čišćenje i brine o gostima — sve putem jedne poruke.',
+                  'AI assistant that automates bookings, coordinates cleaning and takes care of guests — all through one message.',
+                )}
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
                 <a
@@ -82,6 +88,7 @@ export default function LandingPage() {
 
       <ProblemSection />
       <SolutionSection />
+      <AppScreenshots />
       <HowItWorks />
       <RoiCalculator />
       <Testimonials />

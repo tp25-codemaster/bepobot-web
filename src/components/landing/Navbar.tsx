@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { NAV_LINKS } from '../../lib/constants'
+import { useLang } from '../../hooks/useLang'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const { lang, setLang } = useLang()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -48,11 +50,21 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
+            {/* Language toggle */}
+            <button
+              onClick={() => setLang(lang === 'hr' ? 'en' : 'hr')}
+              className={`text-xs font-semibold tracking-widest transition-colors ${
+                scrolled ? 'text-text-muted hover:text-primary' : 'text-white/60 hover:text-white'
+              }`}
+              aria-label="Switch language"
+            >
+              {lang === 'hr' ? 'HR|EN' : 'EN|HR'}
+            </button>
             <a
               href="/app"
               className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors"
             >
-              Isprobaj besplatno
+              {lang === 'hr' ? 'Isprobaj besplatno' : 'Try for free'}
             </a>
           </div>
 
@@ -97,11 +109,17 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
+            <button
+              onClick={() => setLang(lang === 'hr' ? 'en' : 'hr')}
+              className="py-2 text-xs font-semibold tracking-widest text-text-muted hover:text-primary transition-colors text-left"
+            >
+              {lang === 'hr' ? 'HR | EN' : 'EN | HR'}
+            </button>
             <a
               href="/app"
               className="mt-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg text-center hover:bg-primary/90 transition-colors"
             >
-              Isprobaj besplatno
+              {lang === 'hr' ? 'Isprobaj besplatno' : 'Try for free'}
             </a>
           </div>
         </div>
