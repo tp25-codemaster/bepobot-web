@@ -11,13 +11,23 @@ const MONTHS = ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipan
 
 type ViewMode = 'month' | 'week'
 
-function statusClasses(status: string): string {
-  const s = status?.toLowerCase() || ''
-  if (s === 'confirmed' || s === 'active') return 'bg-green-100 border-green-400 text-green-800'
+function platformClasses(r: Reservation): string {
+  if (r.has_conflict) return 'bg-orange-100 border-orange-500 text-orange-900'
+  const p = r.platform || 'direct'
+  if (p === 'booking.com') return 'bg-blue-100 border-blue-500 text-blue-900'
+  if (p === 'airbnb') return 'bg-rose-100 border-rose-500 text-rose-900'
+  // direct or fallback — use status colour
+  const s = r.status?.toLowerCase() || ''
+  if (s === 'confirmed' || s === 'active') return 'bg-emerald-100 border-emerald-500 text-emerald-900'
   if (s === 'pending') return 'bg-yellow-100 border-yellow-400 text-yellow-800'
   if (s === 'cancelled' || s === 'canceled') return 'bg-red-100 border-red-400 text-red-800'
   if (s === 'completed') return 'bg-gray-100 border-gray-400 text-gray-600'
-  return 'bg-blue-100 border-blue-400 text-blue-800'
+  return 'bg-emerald-100 border-emerald-500 text-emerald-900'
+}
+
+function platformLabel(r: Reservation): string {
+  if (r.has_conflict) return '⚠️ ' + r.guest_name.split(' ')[0]
+  return r.guest_name.split(' ')[0]
 }
 
 export default function KalendarPage() {
@@ -27,6 +37,8 @@ export default function KalendarPage() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
   const today = new Date()
   const year = currentDate.getFullYear()
@@ -53,13 +65,40 @@ export default function KalendarPage() {
     loadReservations()
   }, [user, currentDate])
 
+  async function handleSync() {
+    if (syncing) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    setSyncing(true)
+    setSyncMsg(null)
+    try {
+      const res = await fetch('/api/sync-ical', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({}),
+      })
+      const json = await res.json() as { totalConflicts?: number; results?: Array<{ created: number }> }
+      const created = (json.results || []).reduce((s, r) => s + r.created, 0)
+      setSyncMsg(
+        json.totalConflicts
+          ? `⚠️ ${created} novih, ${json.totalConflicts} KONFLIKATA!`
+          : `✓ Kalendar sinkroniziran — ${created} novih`
+      )
+      void loadReservations()
+    } catch {
+      setSyncMsg('Greška pri sync-u')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   async function loadReservations() {
     const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
 
     const { data } = await supabase
       .from('reservations')
-      .select('id, guest_name, guest_contact, guests_count, check_in, check_out, status, notes, apartments(name)')
+      .select('id, guest_name, guest_contact, guests_count, check_in, check_out, status, notes, platform, has_conflict, apartments(name)')
       .eq('user_id', user!.id)
       .lte('check_in', monthEnd)
       .gte('check_out', monthStart)
@@ -237,10 +276,10 @@ export default function KalendarPage() {
                       <button
                         key={r.id}
                         onClick={() => setSelectedReservation(r)}
-                        className={`w-full truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight mb-0.5 text-left transition-all hover:opacity-90 active:scale-95 ${statusClasses(r.status)}`}
+                        className={`w-full truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight mb-0.5 text-left transition-all hover:opacity-90 active:scale-95 ${platformClasses(r)}`}
                         title={`${r.guest_name} — ${r.apartments?.name}`}
                       >
-                        {r.guest_name.split(' ')[0]}
+                        {platformLabel(r)}
                       </button>
                     ))}
                     {dayRes.length > 2 && (
@@ -277,10 +316,10 @@ export default function KalendarPage() {
                     <button
                       key={r.id}
                       onClick={() => setSelectedReservation(r)}
-                      className={`w-full truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight mb-0.5 text-left transition-all hover:opacity-90 active:scale-95 ${statusClasses(r.status)}`}
+                      className={`w-full truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight mb-0.5 text-left transition-all hover:opacity-90 active:scale-95 ${platformClasses(r)}`}
                       title={`${r.guest_name} — ${r.apartments?.name}`}
                     >
-                      {r.guest_name.split(' ')[0]}
+                      {platformLabel(r)}
                     </button>
                   ))}
                   {dayRes.length > 3 && (
@@ -292,13 +331,30 @@ export default function KalendarPage() {
           )}
         </div>
 
-        {/* Status legend */}
-        <div className="mt-4 flex flex-wrap gap-2">
+        {/* Sync gumb + poruka */}
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            onClick={() => void handleSync()}
+            disabled={syncing || isDemoMode}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors"
+          >
+            <span className={syncing ? 'animate-spin inline-block' : ''}>↻</span>
+            {syncing ? 'Sinkroniziram...' : 'Sync kalendar'}
+          </button>
+          {syncMsg && (
+            <span className={`text-xs font-medium px-2.5 py-1.5 rounded-xl ${syncMsg.includes('KONFLIKAT') ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800'}`}>
+              {syncMsg}
+            </span>
+          )}
+        </div>
+
+        {/* Legenda po platformi */}
+        <div className="mt-3 flex flex-wrap gap-2">
           {[
-            { label: 'Potvrđena', dot: 'bg-green-500', cls: 'bg-green-50 text-green-800' },
-            { label: 'Na čekanju', dot: 'bg-yellow-500', cls: 'bg-yellow-50 text-yellow-800' },
-            { label: 'Otkazana', dot: 'bg-red-500', cls: 'bg-red-50 text-red-800' },
-            { label: 'Završena', dot: 'bg-gray-400', cls: 'bg-gray-50 text-gray-600' },
+            { label: 'Booking.com', dot: 'bg-blue-500', cls: 'bg-blue-50 text-blue-800' },
+            { label: 'Airbnb', dot: 'bg-rose-500', cls: 'bg-rose-50 text-rose-800' },
+            { label: 'Direktno', dot: 'bg-emerald-500', cls: 'bg-emerald-50 text-emerald-800' },
+            { label: '⚠️ Konflikt', dot: 'bg-orange-500', cls: 'bg-orange-50 text-orange-800' },
           ].map(({ label, dot, cls }) => (
             <div key={label} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold ${cls}`}>
               <span className={`w-2 h-2 rounded-full ${dot}`} />
@@ -331,8 +387,8 @@ export default function KalendarPage() {
                     {r.apartments?.name} · {new Date(r.check_in + 'T00:00:00').toLocaleDateString('hr-HR')} → {new Date(r.check_out + 'T00:00:00').toLocaleDateString('hr-HR')}
                   </div>
                 </div>
-                <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-xl ${statusClasses(r.status)}`}>
-                  {r.status === 'confirmed' ? 'Potvrđena' : r.status === 'pending' ? 'Na čekanju' : r.status === 'cancelled' ? 'Otkazana' : r.status === 'completed' ? 'Završena' : r.status}
+                <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-xl ${platformClasses(r)}`}>
+                  {r.has_conflict ? '⚠️ Konflikt' : r.platform === 'booking.com' ? 'Booking.com' : r.platform === 'airbnb' ? 'Airbnb' : r.status === 'confirmed' ? 'Direktno' : r.status === 'pending' ? 'Na čekanju' : r.status === 'cancelled' ? 'Otkazana' : 'Završena'}
                 </span>
               </button>
             ))}

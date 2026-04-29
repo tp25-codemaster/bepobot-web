@@ -32,7 +32,9 @@ export interface Reservation {
   evisitor_checked_in_at?: string | null
   evisitor_tourist_id?: string | null
   evisitor_error?: string | null
-  platform?: string
+  platform?: 'booking.com' | 'airbnb' | 'direct' | string
+  external_id?: string | null
+  has_conflict?: boolean
   apartment_name_raw?: string
   apartments?: { name: string } | null
 }

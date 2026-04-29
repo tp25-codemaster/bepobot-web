@@ -4,6 +4,20 @@ import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
 
+async function triggerICalSync(apartmentId: string, token: string): Promise<{ created: number; conflicts: number }> {
+  const res = await fetch('/api/sync-ical', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ apartment_id: apartmentId }),
+  })
+  const data = await res.json() as { results?: Array<{ created: number; conflicts: number }> }
+  const results = data.results || []
+  return {
+    created: results.reduce((s, r) => s + r.created, 0),
+    conflicts: results.reduce((s, r) => s + r.conflicts, 0),
+  }
+}
+
 interface Apartment {
   id: string
   name: string
@@ -13,14 +27,17 @@ interface Apartment {
   rules: string | null
   checkin_instructions: string | null
   evisitor_facility_code: string | null
+  booking_ical_url: string | null
+  airbnb_ical_url: string | null
+  ical_last_synced_at: string | null
 }
 
 const DEMO_APARTMENTS: Apartment[] = [
-  { id: '1', name: 'Apartman 1 - Centar', wifi_ssid: 'ApartmanNet', wifi_password: 'pass1234', parking: 'Ispred kuce, mjesto 3', rules: null, checkin_instructions: null, evisitor_facility_code: '0000022' },
-  { id: '2', name: 'Apartman 2 - More', wifi_ssid: 'SeaView_WiFi', wifi_password: 'more2024', parking: 'Garaza, -1 kat', rules: null, checkin_instructions: null, evisitor_facility_code: null },
+  { id: '1', name: 'Apartman 1 - Centar', wifi_ssid: 'ApartmanNet', wifi_password: 'pass1234', parking: 'Ispred kuce, mjesto 3', rules: null, checkin_instructions: null, evisitor_facility_code: '0000022', booking_ical_url: null, airbnb_ical_url: null, ical_last_synced_at: null },
+  { id: '2', name: 'Apartman 2 - More', wifi_ssid: 'SeaView_WiFi', wifi_password: 'more2024', parking: 'Garaza, -1 kat', rules: null, checkin_instructions: null, evisitor_facility_code: null, booking_ical_url: null, airbnb_ical_url: null, ical_last_synced_at: null },
 ]
 
-const EMPTY: Apartment = { id: '', name: '', wifi_ssid: '', wifi_password: '', parking: '', rules: '', checkin_instructions: '', evisitor_facility_code: '' }
+const EMPTY: Apartment = { id: '', name: '', wifi_ssid: '', wifi_password: '', parking: '', rules: '', checkin_instructions: '', evisitor_facility_code: '', booking_ical_url: '', airbnb_ical_url: '', ical_last_synced_at: null }
 
 export default function ApartmaniPage() {
   const { user } = useAuth()
@@ -29,6 +46,8 @@ export default function ApartmaniPage() {
   const [editing, setEditing] = useState<Apartment | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
   // Load apartments
   useEffect(() => {
@@ -67,34 +86,22 @@ export default function ApartmaniPage() {
       return
     }
 
+    const fields = {
+      name: editing.name,
+      wifi_ssid: editing.wifi_ssid || null,
+      wifi_password: editing.wifi_password || null,
+      parking: editing.parking || null,
+      rules: editing.rules || null,
+      checkin_instructions: editing.checkin_instructions || null,
+      evisitor_facility_code: editing.evisitor_facility_code || null,
+      booking_ical_url: editing.booking_ical_url || null,
+      airbnb_ical_url: editing.airbnb_ical_url || null,
+    }
+
     if (editing.id) {
-      // Update
-      await supabase
-        .from('apartments')
-        .update({
-          name: editing.name,
-          wifi_ssid: editing.wifi_ssid || null,
-          wifi_password: editing.wifi_password || null,
-          parking: editing.parking || null,
-          rules: editing.rules || null,
-          checkin_instructions: editing.checkin_instructions || null,
-          evisitor_facility_code: editing.evisitor_facility_code || null,
-        })
-        .eq('id', editing.id)
+      await supabase.from('apartments').update(fields).eq('id', editing.id)
     } else {
-      // Insert
-      await supabase
-        .from('apartments')
-        .insert({
-          user_id: user!.id,
-          name: editing.name,
-          wifi_ssid: editing.wifi_ssid || null,
-          wifi_password: editing.wifi_password || null,
-          parking: editing.parking || null,
-          rules: editing.rules || null,
-          checkin_instructions: editing.checkin_instructions || null,
-          evisitor_facility_code: editing.evisitor_facility_code || null,
-        })
+      await supabase.from('apartments').insert({ user_id: user!.id, ...fields })
     }
 
     await loadApartments()
@@ -114,9 +121,36 @@ export default function ApartmaniPage() {
     await loadApartments()
   }
 
+  async function handleSync(apt: Apartment) {
+    if (isDemoMode || syncingId) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    setSyncingId(apt.id)
+    setSyncMsg(null)
+    try {
+      const result = await triggerICalSync(apt.id, session.access_token)
+      setSyncMsg(
+        result.conflicts > 0
+          ? `⚠️ Sync gotov — ${result.created} novih, ${result.conflicts} KONFLIKATA!`
+          : `✓ Sync gotov — ${result.created} novih rezervacija`
+      )
+      await loadApartments()
+    } catch {
+      setSyncMsg('Greška pri syncu — provjeri URL-ove')
+    } finally {
+      setSyncingId(null)
+    }
+  }
+
   return (
     <AppShell title="Moji apartmani">
       <div className="p-4 space-y-3">
+        {syncMsg && (
+          <div className={`text-sm px-4 py-3 rounded-xl font-medium ${syncMsg.includes('KONFLIKAT') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+            {syncMsg}
+            <button onClick={() => setSyncMsg(null)} className="ml-2 text-xs opacity-60">×</button>
+          </div>
+        )}
         {loading ? (
           <div className="p-6 space-y-4">
             {[...Array(5)].map((_, i) => (
@@ -184,7 +218,30 @@ export default function ApartmaniPage() {
                           </div>
                         )}
                       </div>
+                      {/* iCal status */}
+                      <div className="flex gap-1 flex-wrap mt-1">
+                        {apt.booking_ical_url && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Booking ✓</span>
+                        )}
+                        {apt.airbnb_ical_url && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Airbnb ✓</span>
+                        )}
+                        {apt.ical_last_synced_at && (
+                          <span className="text-[9px] text-gray-400">
+                            Sync {new Date(apt.ical_last_synced_at).toLocaleDateString('hr-HR')}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex gap-1.5 mt-2">
+                        {(apt.booking_ical_url || apt.airbnb_ical_url) && (
+                          <button
+                            onClick={() => void handleSync(apt)}
+                            disabled={syncingId === apt.id}
+                            className="flex-1 text-xs text-emerald-600 font-medium py-1.5 rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-colors"
+                          >
+                            {syncingId === apt.id ? 'Sync...' : '↻ Sync'}
+                          </button>
+                        )}
                         <button
                           onClick={() => setEditing({ ...apt })}
                           className="flex-1 text-xs text-primary font-medium py-1.5 rounded-lg hover:bg-primary/5 transition-colors"
@@ -309,6 +366,44 @@ export default function ApartmaniPage() {
                 className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
               />
             </label>
+
+            {/* iCal sync URLs */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Kalendar sinkronizacija</p>
+              <div>
+                <label className="block">
+                  <span className="sr-only">Booking.com iCal URL</span>
+                  <input
+                    type="url"
+                    value={editing.booking_ical_url || ''}
+                    onChange={e => setEditing({ ...editing, booking_ical_url: e.target.value })}
+                    placeholder="Booking.com iCal URL (https://admin.booking.com/...)"
+                    aria-label="Booking.com iCal URL"
+                    className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none font-mono text-xs"
+                  />
+                </label>
+                <p className="text-[10px] text-text-muted mt-0.5">
+                  Booking.com → Moji objekti → Kalendar → Izvoz iCal
+                </p>
+              </div>
+              <div>
+                <label className="block">
+                  <span className="sr-only">Airbnb iCal URL</span>
+                  <input
+                    type="url"
+                    value={editing.airbnb_ical_url || ''}
+                    onChange={e => setEditing({ ...editing, airbnb_ical_url: e.target.value })}
+                    placeholder="Airbnb iCal URL (https://www.airbnb.com/calendar/ical/...)"
+                    aria-label="Airbnb iCal URL"
+                    className="w-full px-3 py-2 border border-rose-200 rounded-lg text-sm focus:border-rose-400 focus:ring-1 focus:ring-rose-300 outline-none font-mono text-xs"
+                  />
+                </label>
+                <p className="text-[10px] text-text-muted mt-0.5">
+                  Airbnb → Kalendar → Dostupnost → Izvezi kalendar
+                </p>
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <button
                 onClick={handleSave}

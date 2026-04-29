@@ -390,6 +390,10 @@ export default async function handler(
   const newReservationId = randomUUID()
   const publicToken = generateToken()
 
+  const platformValue =
+    parsed.source === 'booking.com' ? 'booking.com' :
+    parsed.source === 'airbnb' ? 'airbnb' : 'direct'
+
   const { error: insertErr } = await admin.from('reservations').insert({
     id: newReservationId,
     user_id: payload.user_id,
@@ -400,6 +404,7 @@ export default async function handler(
     check_in: parsed.check_in_date,
     check_out: parsed.check_out_date,
     status: 'confirmed',
+    platform: platformValue,
     notes: `Auto from ${parsed.source || 'email'}: ${payload.email_subject || ''}`.slice(0, 500),
     token: publicToken,
     guest_email: parsed.guest_email || null,
