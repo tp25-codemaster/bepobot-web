@@ -4,20 +4,6 @@ import ConfirmModal from '../../components/ConfirmModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, isDemoMode } from '../../lib/supabase'
 
-async function triggerICalSync(apartmentId: string, token: string): Promise<{ created: number; conflicts: number }> {
-  const res = await fetch('/api/sync-ical', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ apartment_id: apartmentId }),
-  })
-  const data = await res.json() as { results?: Array<{ created: number; conflicts: number }> }
-  const results = data.results || []
-  return {
-    created: results.reduce((s, r) => s + r.created, 0),
-    conflicts: results.reduce((s, r) => s + r.conflicts, 0),
-  }
-}
-
 interface Apartment {
   id: string
   name: string
@@ -46,8 +32,6 @@ export default function ApartmaniPage() {
   const [editing, setEditing] = useState<Apartment | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [syncingId, setSyncingId] = useState<string | null>(null)
-  const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
   // Load apartments
   useEffect(() => {
@@ -121,36 +105,9 @@ export default function ApartmaniPage() {
     await loadApartments()
   }
 
-  async function handleSync(apt: Apartment) {
-    if (isDemoMode || syncingId) return
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    setSyncingId(apt.id)
-    setSyncMsg(null)
-    try {
-      const result = await triggerICalSync(apt.id, session.access_token)
-      setSyncMsg(
-        result.conflicts > 0
-          ? `⚠️ Sync gotov — ${result.created} novih, ${result.conflicts} KONFLIKATA!`
-          : `✓ Sync gotov — ${result.created} novih rezervacija`
-      )
-      await loadApartments()
-    } catch {
-      setSyncMsg('Greška pri syncu — provjeri URL-ove')
-    } finally {
-      setSyncingId(null)
-    }
-  }
-
   return (
     <AppShell title="Moji apartmani">
       <div className="p-4 space-y-3">
-        {syncMsg && (
-          <div className={`text-sm px-4 py-3 rounded-xl font-medium ${syncMsg.includes('KONFLIKAT') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-            {syncMsg}
-            <button onClick={() => setSyncMsg(null)} className="ml-2 text-xs opacity-60">×</button>
-          </div>
-        )}
         {loading ? (
           <div className="p-6 space-y-4">
             {[...Array(5)].map((_, i) => (
@@ -233,15 +190,6 @@ export default function ApartmaniPage() {
                         )}
                       </div>
                       <div className="flex gap-1.5 mt-2">
-                        {(apt.booking_ical_url || apt.airbnb_ical_url) && (
-                          <button
-                            onClick={() => void handleSync(apt)}
-                            disabled={syncingId === apt.id}
-                            className="flex-1 text-xs text-emerald-600 font-medium py-1.5 rounded-lg hover:bg-emerald-50 disabled:opacity-50 transition-colors"
-                          >
-                            {syncingId === apt.id ? 'Sync...' : '↻ Sync'}
-                          </button>
-                        )}
                         <button
                           onClick={() => setEditing({ ...apt })}
                           className="flex-1 text-xs text-primary font-medium py-1.5 rounded-lg hover:bg-primary/5 transition-colors"
