@@ -5,15 +5,6 @@ import { supabase, isDemoMode } from '../../lib/supabase'
 import CalendarReservationModal from '../../components/CalendarReservationModal'
 import type { Reservation } from '../../types/index'
 
-interface ApartmentSync {
-  id: string
-  name: string
-  booking_ical_url: string | null
-  airbnb_ical_url: string | null
-  ical_export_token: string | null
-  ical_last_synced_at: string | null
-}
-
 const DAYS = ['Pon', 'Uto', 'Sri', 'Čet', 'Pet', 'Sub', 'Ned']
 const MONTHS = ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj',
   'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac']
@@ -70,83 +61,7 @@ export default function KalendarPage() {
   useEffect(() => {
     if (isDemoMode || !user) return
     loadReservations()
-    loadApartments()
   }, [user, currentDate])
-
-  async function loadApartments() {
-    const { data } = await supabase
-      .from('apartments')
-      .select('id, name, booking_ical_url, airbnb_ical_url, ical_export_token, ical_last_synced_at')
-      .eq('user_id', user!.id)
-      .order('created_at', { ascending: true })
-    setApartments((data as ApartmentSync[]) || [])
-  }
-
-  async function handleSyncAll() {
-    if (syncing) return
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    setSyncing(true)
-    setSyncMsg(null)
-    try {
-      const res = await fetch('/api/sync-ical', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({}),
-      })
-      const json = await res.json() as { totalConflicts?: number; results?: Array<{ created: number }> }
-      const created = (json.results || []).reduce((s, r) => s + r.created, 0)
-      setSyncMsg(
-        json.totalConflicts
-          ? `⚠️ ${created} novih, ${json.totalConflicts} KONFLIKATA!`
-          : `✓ Sinkronizirano — ${created} novih`
-      )
-      void loadReservations()
-      void loadApartments()
-    } catch {
-      setSyncMsg('Greška pri sync-u')
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  async function handleSyncApt(aptId: string) {
-    if (syncingAptId) return
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    setSyncingAptId(aptId)
-    setSyncMsg(null)
-    try {
-      const res = await fetch('/api/sync-ical', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ apartment_id: aptId }),
-      })
-      const json = await res.json() as { totalConflicts?: number; results?: Array<{ created: number }> }
-      const created = (json.results || []).reduce((s, r) => s + r.created, 0)
-      setSyncMsg(
-        json.totalConflicts
-          ? `⚠️ ${created} novih, ${json.totalConflicts} KONFLIKATA!`
-          : `✓ ${created} novih rezervacija`
-      )
-      void loadReservations()
-      void loadApartments()
-    } catch {
-      setSyncMsg('Greška pri sync-u')
-    } finally {
-      setSyncingAptId(null)
-    }
-  }
-
-  function exportUrl(apt: ApartmentSync): string {
-    return `${window.location.origin}/api/ical-export?apt=${apt.id}&token=${apt.ical_export_token}`
-  }
-
-  async function copyExportUrl(apt: ApartmentSync) {
-    await navigator.clipboard.writeText(exportUrl(apt))
-    setCopiedId(apt.id)
-    setTimeout(() => setCopiedId(null), 2000)
-  }
 
   async function loadReservations() {
     const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`
