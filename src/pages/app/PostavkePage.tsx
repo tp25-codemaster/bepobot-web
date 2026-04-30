@@ -4,12 +4,91 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import AppShell from '../../components/app/AppShell'
 
+interface ApartmentSync {
+  id: string
+  name: string
+  booking_ical_url: string | null
+  airbnb_ical_url: string | null
+  ical_export_token: string | null
+  ical_last_synced_at: string | null
+}
+
 export default function PostavkePage() {
   const { user, profile, signOut, isDemo, session, updateProfile } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [gmailStatus, setGmailStatus] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [apartments, setApartments] = useState<ApartmentSync[]>([])
+  const [syncing, setSyncing] = useState(false)
+  const [syncingAptId, setSyncingAptId] = useState<string | null>(null)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (user) void loadApartments()
+  }, [user])
+
+  async function loadApartments() {
+    const { data } = await supabase
+      .from('apartments')
+      .select('id, name, booking_ical_url, airbnb_ical_url, ical_export_token, ical_last_synced_at')
+      .eq('user_id', user!.id)
+      .order('created_at', { ascending: true })
+    setApartments((data as ApartmentSync[]) || [])
+  }
+
+  async function handleSyncAll() {
+    if (syncing || !session?.access_token) return
+    setSyncing(true)
+    setSyncMsg(null)
+    try {
+      const res = await fetch('/api/sync-ical', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({}),
+      })
+      const json = await res.json() as { totalConflicts?: number; results?: Array<{ created: number }> }
+      const created = (json.results || []).reduce((s: number, r: { created: number }) => s + r.created, 0)
+      setSyncMsg(json.totalConflicts ? `⚠️ ${created} novih, ${json.totalConflicts} KONFLIKATA!` : `✓ ${created} novih rezervacija`)
+      void loadApartments()
+    } catch {
+      setSyncMsg('Greška pri sync-u')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  async function handleSyncApt(aptId: string) {
+    if (syncingAptId || !session?.access_token) return
+    setSyncingAptId(aptId)
+    setSyncMsg(null)
+    try {
+      const res = await fetch('/api/sync-ical', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ apartment_id: aptId }),
+      })
+      const json = await res.json() as { totalConflicts?: number; results?: Array<{ created: number }> }
+      const created = (json.results || []).reduce((s: number, r: { created: number }) => s + r.created, 0)
+      setSyncMsg(json.totalConflicts ? `⚠️ ${created} novih, ${json.totalConflicts} KONFLIKATA!` : `✓ ${created} novih`)
+      void loadApartments()
+    } catch {
+      setSyncMsg('Greška pri sync-u')
+    } finally {
+      setSyncingAptId(null)
+    }
+  }
+
+  function exportUrl(apt: ApartmentSync) {
+    return `${window.location.origin}/api/ical-export?apt=${apt.id}&token=${apt.ical_export_token}`
+  }
+
+  async function copyExportUrl(apt: ApartmentSync) {
+    await navigator.clipboard.writeText(exportUrl(apt))
+    setCopiedId(apt.id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
 
   useEffect(() => {
     const gmail = searchParams.get('gmail')
@@ -136,6 +215,95 @@ export default function PostavkePage() {
                   className="w-full py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   Povezi Gmail
+                </button>
+              )}
+            </div>
+
+            {/* iCal kalendar sync */}
+            <div className="bg-white rounded-2xl border border-border/60 shadow-sm p-4">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm">📅</span>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-text">Kalendar sync</div>
+                  <div className="text-xs text-text-muted">Booking.com i Airbnb · auto svaka 2h</div>
+                </div>
+              </div>
+
+              {syncMsg && (
+                <div className={`mb-3 px-3 py-2 rounded-xl text-xs font-medium ${syncMsg.includes('KONFLIKAT') ? 'bg-orange-50 text-orange-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                  {syncMsg}
+                </div>
+              )}
+
+              {apartments.length === 0 ? (
+                <p className="text-xs text-text-muted text-center py-2">
+                  Dodaj iCal URL-ove u Moji apartmani → Uredi.
+                </p>
+              ) : (
+                <div className="space-y-2 mb-3">
+                  {apartments.map(apt => (
+                    <div key={apt.id} className="border border-border/60 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-text">{apt.name}</span>
+                        <div className="flex gap-1">
+                          {apt.booking_ical_url
+                            ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Booking ✓</span>
+                            : <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">Booking —</span>
+                          }
+                          {apt.airbnb_ical_url
+                            ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Airbnb ✓</span>
+                            : <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">Airbnb —</span>
+                          }
+                        </div>
+                      </div>
+
+                      {apt.ical_export_token && (
+                        <div>
+                          <p className="text-[10px] text-text-muted mb-1">BepoBot URL (dodaj u Booking/Airbnb kao "Uvezi kalendar")</p>
+                          <div className="flex gap-1.5">
+                            <div className="flex-1 px-2 py-1.5 bg-gray-50 border border-border/40 rounded-lg font-mono text-[9px] text-gray-500 truncate">
+                              {exportUrl(apt)}
+                            </div>
+                            <button
+                              onClick={() => void copyExportUrl(apt)}
+                              className="shrink-0 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+                            >
+                              {copiedId === apt.id ? '✓' : 'Kopiraj'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-text-muted">
+                          {apt.ical_last_synced_at
+                            ? `Sync: ${new Date(apt.ical_last_synced_at).toLocaleString('hr-HR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                            : 'Još nije sinkronizirano'}
+                        </span>
+                        {(apt.booking_ical_url || apt.airbnb_ical_url) && (
+                          <button
+                            onClick={() => void handleSyncApt(apt.id)}
+                            disabled={!!syncingAptId}
+                            className="text-xs font-semibold px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+                          >
+                            {syncingAptId === apt.id ? 'Sync...' : '↻ Sync'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {apartments.some(a => a.booking_ical_url || a.airbnb_ical_url) && (
+                <button
+                  onClick={() => void handleSyncAll()}
+                  disabled={syncing || !!syncingAptId}
+                  className="w-full py-2 text-xs font-semibold rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {syncing ? 'Sinkroniziram...' : '↻ Sync sve'}
                 </button>
               )}
             </div>

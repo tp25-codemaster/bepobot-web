@@ -46,12 +46,6 @@ export default function KalendarPage() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [touchStart, setTouchStart] = useState<number | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [syncingAptId, setSyncingAptId] = useState<string | null>(null)
-  const [syncMsg, setSyncMsg] = useState<string | null>(null)
-  const [syncOpen, setSyncOpen] = useState(false)
-  const [apartments, setApartments] = useState<ApartmentSync[]>([])
-  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const today = new Date()
   const year = currentDate.getFullYear()
@@ -245,8 +239,8 @@ export default function KalendarPage() {
       />
 
       <div className="p-4">
-        {/* View toggle + Sync gumb */}
-        <div className="flex items-center justify-between gap-1 mb-3">
+        {/* View toggle */}
+        <div className="flex items-center justify-center gap-1 mb-3">
           <div className="flex bg-gray-100 rounded-lg p-0.5">
             <button
               onClick={() => setViewMode('month')}
@@ -270,101 +264,7 @@ export default function KalendarPage() {
             </button>
           </div>
 
-          {!isDemoMode && (
-            <button
-              onClick={() => setSyncOpen(o => !o)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
-            >
-              <span>↻</span>
-              Sync
-            </button>
-          )}
         </div>
-
-        {/* Sync panel */}
-        {syncOpen && !isDemoMode && (
-          <div className="mb-4 border border-border rounded-2xl overflow-hidden bg-white">
-            <div className="p-4 space-y-4">
-              {syncMsg && (
-                <div className={`text-xs font-medium px-3 py-2 rounded-xl ${syncMsg.includes('KONFLIKAT') ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                  {syncMsg}
-                </div>
-              )}
-
-              {apartments.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-2">Nema apartmana s konfiguriranim iCal URL-ovima.<br />Dodaj ih u Moji apartmani → Uredi.</p>
-              ) : (
-                <div className="space-y-3">
-                  {apartments.map(apt => (
-                    <div key={apt.id} className="border border-border rounded-xl p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-900">{apt.name}</span>
-                        <div className="flex gap-1">
-                          {apt.booking_ical_url
-                            ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Booking ✓</span>
-                            : <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">Booking —</span>
-                          }
-                          {apt.airbnb_ical_url
-                            ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Airbnb ✓</span>
-                            : <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">Airbnb —</span>
-                          }
-                        </div>
-                      </div>
-
-                      {apt.ical_export_token && (
-                        <div>
-                          <p className="text-[10px] text-gray-400 mb-1">BepoBot → Booking/Airbnb (kopiraj i dodaj kao "Uvezi kalendar")</p>
-                          <div className="flex gap-1.5">
-                            <div className="flex-1 px-2 py-1.5 bg-gray-50 border border-border rounded-lg font-mono text-[9px] text-gray-500 truncate">
-                              {exportUrl(apt)}
-                            </div>
-                            <button
-                              onClick={() => void copyExportUrl(apt)}
-                              className="shrink-0 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
-                            >
-                              {copiedId === apt.id ? '✓' : 'Kopiraj'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        {apt.ical_last_synced_at ? (
-                          <span className="text-[10px] text-gray-400">
-                            Zadnji sync: {new Date(apt.ical_last_synced_at).toLocaleString('hr-HR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-gray-400">Još nije sinkronizirano</span>
-                        )}
-                        {(apt.booking_ical_url || apt.airbnb_ical_url) && (
-                          <button
-                            onClick={() => void handleSyncApt(apt.id)}
-                            disabled={!!syncingAptId}
-                            className="text-xs font-semibold px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
-                          >
-                            {syncingAptId === apt.id ? 'Sync...' : '↻ Sync'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <button
-                onClick={() => void handleSyncAll()}
-                disabled={syncing || syncingAptId !== null}
-                className="w-full py-2.5 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                {syncing ? 'Sinkroniziram sve...' : '↻ Sync sve apartmane'}
-              </button>
-
-              <p className="text-[10px] text-gray-400 text-center">
-                Auto-sync svaka 2h. Booking/Airbnb URL-ove postavljaš u Moji apartmani → Uredi.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Month/Week navigation */}
         <div className="flex items-center justify-between mb-4">
