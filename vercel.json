@@ -1,9 +1,22 @@
 {
-  "rewrites": [
-    { "source": "/app", "destination": "/index.html" },
-    { "source": "/app/:path*", "destination": "/index.html" },
-    { "source": "/evisitor", "destination": "/index.html" },
-    { "source": "/evisitor/:path*", "destination": "/index.html" },
-    { "source": "/checkin/:token", "destination": "/index.html" }
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    },
+    {
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/app", "dest": "/index.html" },
+    { "src": "/app/(.*)", "dest": "/index.html" },
+    { "src": "/evisitor", "dest": "/index.html" },
+    { "src": "/evisitor/(.*)", "dest": "/index.html" },
+    { "src": "/checkin/(.*)", "dest": "/index.html" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
