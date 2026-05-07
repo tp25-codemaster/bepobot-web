@@ -29,12 +29,13 @@ interface VercelResponse {
 
 // Pub/Sub topic name — must be set via env var (e.g. projects/<id>/topics/<name>)
 const GMAIL_PUBSUB_TOPIC = (process.env.GMAIL_PUBSUB_TOPIC || '').trim()
+const APP_URL = (process.env.APP_URL || 'https://bepobot-web.vercel.app').replace(/\/$/, '')
 
 async function refreshAccessToken(userId: string): Promise<string | null> {
   const secret = (process.env.EMAIL_API_SECRET || '').trim()
   if (!secret) return null
   try {
-    const res = await fetch('https://bepobot-web.vercel.app/api/gmail-refresh', {
+    const res = await fetch(`${APP_URL}/api/gmail-refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, secret }),

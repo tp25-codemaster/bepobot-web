@@ -23,7 +23,8 @@ interface VercelResponse {
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
-const REDIRECT_URI = 'https://bepobot-web.vercel.app/api/gmail-callback'
+const APP_URL = (process.env.APP_URL || 'https://bepobot-web.vercel.app').replace(/\/$/, '')
+const REDIRECT_URI = `${APP_URL}/api/gmail-callback`
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const code = req.query.code as string
@@ -133,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Auto-register Gmail watch for Push Notifications (Phase 3)
   // Fire-and-forget: if it fails, user can retry manually from settings
   try {
-    await fetch('https://bepobot-web.vercel.app/api/gmail-watch', {
+    await fetch(`${APP_URL}/api/gmail-watch`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${jwtToken}`,
