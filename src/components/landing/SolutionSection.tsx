@@ -1,24 +1,33 @@
 import { FEATURES } from '../../lib/constants'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
+import { useLang } from '../../hooks/useLang'
 
 export default function SolutionSection() {
   const ref = useScrollReveal()
+  const { t } = useLang()
 
   return (
     <section id="features" className="py-20 sm:py-28 bg-light">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div ref={ref} className="reveal text-center max-w-2xl mx-auto mb-14">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-text tracking-tight">
-            BepoBot — AI koji sve pamti umjesto vas.
+            {t('BepoBot — AI koji sve pamti umjesto vas.', 'BepoBot — AI that remembers everything for you.')}
           </h2>
           <p className="mt-4 text-text-muted text-lg leading-relaxed">
-            Kažete botu jednom porukom što treba. On odradi sve ostalo.
+            {t('Kažete botu jednom porukom što treba. On odradi sve ostalo.', 'Tell the bot what you need in one message. It handles the rest.')}
           </p>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {FEATURES.map((feature, i) => (
-            <FeatureCard key={i} {...feature} index={i} />
+            <FeatureCard
+              key={i}
+              icon={feature.icon}
+              title={t(feature.title.hr, feature.title.en)}
+              description={t(feature.description.hr, feature.description.en)}
+              example={feature.example}
+              index={i}
+            />
           ))}
         </div>
       </div>

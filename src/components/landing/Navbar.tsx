@@ -5,7 +5,7 @@ import { useLang } from '../../hooks/useLang'
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const { lang, setLang } = useLang()
+  const { lang, setLang, t } = useLang()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -47,7 +47,7 @@ export default function Navbar() {
                   scrolled ? 'text-text-muted' : 'text-white/80'
                 }`}
               >
-                {link.label}
+                {t(link.label.hr, link.label.en)}
               </a>
             ))}
             {/* Language toggle */}
@@ -64,7 +64,7 @@ export default function Navbar() {
               href="/app"
               className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors"
             >
-              {lang === 'hr' ? 'Isprobaj besplatno' : 'Try for free'}
+              {t('Isprobaj besplatno', 'Try for free')}
             </a>
           </div>
 
@@ -106,7 +106,7 @@ export default function Navbar() {
                 onClick={() => setMenuOpen(false)}
                 className="text-sm font-medium text-text-muted hover:text-primary py-2"
               >
-                {link.label}
+                {t(link.label.hr, link.label.en)}
               </a>
             ))}
             <button
@@ -119,7 +119,7 @@ export default function Navbar() {
               href="/app"
               className="mt-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg text-center hover:bg-primary/90 transition-colors"
             >
-              {lang === 'hr' ? 'Isprobaj besplatno' : 'Try for free'}
+              {t('Isprobaj besplatno', 'Try for free')}
             </a>
           </div>
         </div>

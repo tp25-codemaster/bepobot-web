@@ -48,6 +48,10 @@ import EVisitorSettingsPage from './pages/app/EVisitorSettingsPage'
 import PostavkePage from './pages/app/PostavkePage'
 import RezervacijePage from './pages/app/RezervacijePage'
 import DashboardPage from './pages/app/DashboardPage'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import TermsOfService from './pages/TermsOfService'
+import { Onboarding } from './pages/Onboarding'
+import BillingPage from './pages/app/BillingPage'
 
 function FallbackUI() {
   return (
@@ -128,6 +132,11 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/" element={<LandingPage />} />
           <Route path="/app/login" element={<LoginPage />} />
           <Route path="/checkin/:token" element={<GuestCheckIn />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/onboarding" element={
+            <ProtectedRoute><Onboarding /></ProtectedRoute>
+          } />
 
           {/* Protected app routes */}
           <Route path="/app" element={
@@ -156,6 +165,9 @@ createRoot(document.getElementById('root')!).render(
           } />
           <Route path="/app/postavke" element={
             <ProtectedRoute><PostavkePage /></ProtectedRoute>
+          } />
+          <Route path="/app/billing" element={
+            <ProtectedRoute><BillingPage /></ProtectedRoute>
           } />
 
           {/* Legacy */}

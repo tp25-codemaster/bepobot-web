@@ -1,22 +1,29 @@
 import { useState } from 'react'
 import { FAQ_ITEMS } from '../../lib/constants'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
+import { useLang } from '../../hooks/useLang'
 
 export default function Faq() {
   const ref = useScrollReveal()
+  const { t } = useLang()
 
   return (
     <section id="faq" className="py-20 sm:py-28 bg-light">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div ref={ref} className="reveal text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-text tracking-tight">
-            Česta pitanja
+            {t('Česta pitanja', 'Frequently asked questions')}
           </h2>
         </div>
 
         <div className="space-y-3">
           {FAQ_ITEMS.map((item, i) => (
-            <FaqItem key={i} {...item} index={i} />
+            <FaqItem
+              key={i}
+              question={t(item.question.hr, item.question.en)}
+              answer={t(item.answer.hr, item.answer.en)}
+              index={i}
+            />
           ))}
         </div>
       </div>

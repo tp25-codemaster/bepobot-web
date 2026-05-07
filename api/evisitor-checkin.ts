@@ -13,6 +13,7 @@ import {
 import { decrypt } from '../server/crypto.js'
 import { getUserSupabase, getCurrentUser } from '../server/supabase.js'
 import { setCorsHeaders } from './_lib/cors.js'
+import { withSentry, captureError, setSentryUser } from './_lib/sentry.js'
 
 interface VercelRequest {
   method?: string
@@ -26,7 +27,7 @@ interface VercelResponse {
   end: () => void
 }
 
-export default async function handler(
+async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
@@ -58,6 +59,7 @@ export default async function handler(
       .json({ success: false, error: 'Invalid or expired session' })
     return
   }
+  setSentryUser(user.id)
 
   // 2. Parse input
   let input: GuestCheckInInput
@@ -82,6 +84,7 @@ export default async function handler(
     .single()
 
   if (profileErr || !profile) {
+    captureError(profileErr || new Error('profile not found'), { userId: user.id })
     res.status(500).json({
       success: false,
       error: 'Ne mogu dohvatiti profil: ' + (profileErr?.message || 'unknown'),
@@ -106,6 +109,7 @@ export default async function handler(
   try {
     password = decrypt(profile.evisitor_password)
   } catch (e) {
+    captureError(e, { userId: user.id, context: 'evisitor_decrypt' })
     res.status(500).json({
       success: false,
       error:
@@ -123,6 +127,7 @@ export default async function handler(
       password,
     })
   } catch (e) {
+    captureError(e, { userId: user.id, context: 'evisitor_checkin' })
     res.status(500).json({
       success: false,
       error: 'Handler crash: ' + (e as Error).message,
@@ -149,3 +154,5 @@ export default async function handler(
 
   res.status(result.success ? 200 : 502).json(result)
 }
+
+export default withSentry(handler)

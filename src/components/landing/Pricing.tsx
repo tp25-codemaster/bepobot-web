@@ -36,6 +36,7 @@ function PricingCard({
   index: number
 }) {
   const ref = useScrollReveal(index * 100)
+  const { t } = useLang()
 
   return (
     <div
@@ -48,16 +49,16 @@ function PricingCard({
     >
       {plan.highlighted && 'badge' in plan && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-white text-xs font-bold rounded-full">
-          {plan.badge}
+          {t(plan.badge.hr, plan.badge.en)}
         </div>
       )}
 
       <div className="text-center mb-6">
         <h3 className="text-xl font-bold text-text">{plan.name}</h3>
-        <p className="text-text-muted text-sm mt-1">{plan.description}</p>
+        <p className="text-text-muted text-sm mt-1">{t(plan.description.hr, plan.description.en)}</p>
         <div className="mt-4">
           <span className="text-4xl font-extrabold text-text">{plan.price}€</span>
-          <span className="text-text-muted text-sm">{plan.period}</span>
+          <span className="text-text-muted text-sm">{t(plan.period.hr, plan.period.en)}</span>
         </div>
       </div>
 
@@ -68,7 +69,7 @@ function PricingCard({
               {f.included ? '✓' : '✕'}
             </span>
             <span className={f.included ? 'text-text' : 'text-text-muted/40 line-through'}>
-              {f.text}
+              {t(f.text.hr, f.text.en)}
             </span>
           </li>
         ))}
@@ -82,7 +83,7 @@ function PricingCard({
             : 'bg-light text-primary hover:bg-primary/10'
         }`}
       >
-        Započni besplatno
+        {t('Započni besplatno', 'Start for free')}
       </a>
     </div>
   )

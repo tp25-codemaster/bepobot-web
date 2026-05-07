@@ -1,24 +1,35 @@
 import { PROBLEMS } from '../../lib/constants'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
+import { useLang } from '../../hooks/useLang'
 
 export default function ProblemSection() {
   const ref = useScrollReveal()
+  const { t } = useLang()
 
   return (
     <section className="py-20 sm:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div ref={ref} className="reveal text-center max-w-2xl mx-auto mb-14">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-text tracking-tight">
-            Poznajete li ovaj osjećaj?
+            {t('Poznajete li ovaj osjećaj?', 'Does this sound familiar?')}
           </h2>
           <p className="mt-4 text-text-muted text-lg leading-relaxed">
-            Iznajmljivanje apartmana trebalo bi biti pasivni prihod. Umjesto toga, svaki dan trošite na mailove, poruke i koordinaciju.
+            {t(
+              'Iznajmljivanje apartmana trebalo bi biti pasivni prihod. Umjesto toga, svaki dan trošite na mailove, poruke i koordinaciju.',
+              'Renting apartments should be passive income. Instead, you spend every day on emails, messages and coordination.',
+            )}
           </p>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-5">
           {PROBLEMS.map((problem, i) => (
-            <ProblemCard key={i} {...problem} index={i} />
+            <ProblemCard
+              key={i}
+              icon={problem.icon}
+              title={t(problem.title.hr, problem.title.en)}
+              description={t(problem.description.hr, problem.description.en)}
+              index={i}
+            />
           ))}
         </div>
       </div>

@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
+import { useLang } from '../../hooks/useLang'
 
 export default function RoiCalculator() {
   const ref = useScrollReveal()
+  const { t } = useLang()
   const [apartments, setApartments] = useState(3)
   const [hours, setHours] = useState(20)
   const [rate, setRate] = useState(10)
@@ -18,13 +20,13 @@ export default function RoiCalculator() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div ref={ref} className="reveal">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight text-center mb-12">
-            Koliko ćete uštedjeti?
+            {t('Koliko ćete uštedjeti?', 'How much will you save?')}
           </h2>
 
           <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-white/10">
             <div className="space-y-8">
               <SliderField
-                label="Koliko apartmana imate?"
+                label={t('Koliko apartmana imate?', 'How many apartments do you have?')}
                 value={apartments}
                 onChange={setApartments}
                 min={1}
@@ -32,7 +34,7 @@ export default function RoiCalculator() {
                 suffix=""
               />
               <SliderField
-                label="Sati tjedno na administraciju?"
+                label={t('Sati tjedno na administraciju?', 'Hours per week on admin?')}
                 value={hours}
                 onChange={setHours}
                 min={5}
@@ -40,7 +42,7 @@ export default function RoiCalculator() {
                 suffix="h"
               />
               <SliderField
-                label="Vaša satnica (€)?"
+                label={t('Vaša satnica (€)?', 'Your hourly rate (€)?')}
                 value={rate}
                 onChange={setRate}
                 min={5}
@@ -52,18 +54,18 @@ export default function RoiCalculator() {
             <div className="mt-10 pt-8 border-t border-white/10">
               <div className="grid sm:grid-cols-2 gap-6 text-center">
                 <div>
-                  <div className="text-white/50 text-sm mb-1">Bez BepoBota</div>
+                  <div className="text-white/50 text-sm mb-1">{t('Bez BepoBota', 'Without BepoBot')}</div>
                   <div className="text-2xl font-bold text-danger-border">
-                    {annualWithout.toLocaleString('hr-HR')}€<span className="text-sm font-normal">/god</span>
+                    {annualWithout.toLocaleString('hr-HR')}€<span className="text-sm font-normal">{t('/god', '/yr')}</span>
                   </div>
-                  <div className="text-xs text-white/30 mt-1">izgubljene vrijednosti</div>
+                  <div className="text-xs text-white/30 mt-1">{t('izgubljene vrijednosti', 'lost value')}</div>
                 </div>
                 <div>
-                  <div className="text-white/50 text-sm mb-1">Sa BepoBotom</div>
+                  <div className="text-white/50 text-sm mb-1">{t('Sa BepoBotom', 'With BepoBot')}</div>
                   <div className="text-2xl font-bold text-primary-light">
-                    {annualWith.toLocaleString('hr-HR')}€<span className="text-sm font-normal">/god</span>
+                    {annualWith.toLocaleString('hr-HR')}€<span className="text-sm font-normal">{t('/god', '/yr')}</span>
                   </div>
-                  <div className="text-xs text-white/30 mt-1">{planPrice}€/mj plan</div>
+                  <div className="text-xs text-white/30 mt-1">{planPrice}€{t('/mj plan', '/mo plan')}</div>
                 </div>
               </div>
 
@@ -72,9 +74,9 @@ export default function RoiCalculator() {
                   <div className="text-4xl sm:text-5xl font-extrabold text-primary-light animate-pulse">
                     {savings.toLocaleString('hr-HR')}€
                   </div>
-                  <div className="text-white/60 mt-2">uštede godišnje</div>
+                  <div className="text-white/60 mt-2">{t('uštede godišnje', 'saved per year')}</div>
                   <div className="text-sm text-white/40 mt-1">
-                    To je {weekends} slobodnih vikenda.
+                    {t(`To je ${weekends} slobodnih vikenda.`, `That's ${weekends} free weekends.`)}
                   </div>
                 </div>
               )}

@@ -1,6 +1,9 @@
 import { NAV_LINKS, BRAND } from '../../lib/constants'
+import { useLang } from '../../hooks/useLang'
 
 export default function Footer() {
+  const { t } = useLang()
+
   return (
     <footer className="py-12 bg-dark border-t border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -13,7 +16,7 @@ export default function Footer() {
               </div>
               <span className="text-white font-bold">{BRAND.name}</span>
             </div>
-            <p className="text-white/30 text-xs mt-2">{BRAND.tagline}</p>
+            <p className="text-white/30 text-xs mt-2">{t(BRAND.tagline.hr, BRAND.tagline.en)}</p>
           </div>
 
           {/* Nav links */}
@@ -24,22 +27,30 @@ export default function Footer() {
                 href={link.href}
                 className="text-white/40 text-sm hover:text-white/70 transition-colors"
               >
-                {link.label}
+                {t(link.label.hr, link.label.en)}
               </a>
             ))}
             <a
               href={`mailto:${BRAND.email}`}
               className="text-white/40 text-sm hover:text-white/70 transition-colors"
             >
-              Kontakt
+              {t('Kontakt', 'Contact')}
             </a>
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-white/5 text-center">
+        <div className="mt-8 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-white/20 text-xs">
             © {new Date().getFullYear()} {BRAND.name} · Powered by {BRAND.company}
           </p>
+          <div className="flex gap-4">
+            <a href="/privacy" className="text-white/20 text-xs hover:text-white/50 transition-colors">
+              {t('Privatnost', 'Privacy')}
+            </a>
+            <a href="/terms" className="text-white/20 text-xs hover:text-white/50 transition-colors">
+              {t('Uvjeti korištenja', 'Terms of use')}
+            </a>
+          </div>
         </div>
       </div>
     </footer>

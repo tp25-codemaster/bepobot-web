@@ -19,6 +19,7 @@ import { findConflicts } from '../server/conflict-check.js'
 import { randomUUID, randomBytes } from 'node:crypto'
 import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
 import { setCorsHeaders } from './_lib/cors.js'
+import { withSentry, captureError } from './_lib/sentry.js'
 
 interface VercelRequest {
   method?: string
@@ -193,7 +194,7 @@ function matchApartment(
   return fuzzy || null
 }
 
-export default async function handler(
+async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
@@ -279,6 +280,7 @@ export default async function handler(
   const { parsed, error: parseErr } = await parseWithHaiku(payload)
 
   if (!parsed) {
+    captureError(new Error(parseErr || 'Parse failed'), { userId: payload.user_id, email_subject: payload.email_subject })
     await admin.from('email_log').insert({
       user_id: payload.user_id,
       gmail_message_id: payload.gmail_message_id || null,
@@ -412,6 +414,7 @@ export default async function handler(
   })
 
   if (insertErr) {
+    captureError(insertErr, { userId: payload.user_id, reservationId: newReservationId })
     await admin.from('email_log').insert({
       user_id: payload.user_id,
       gmail_message_id: payload.gmail_message_id || null,
@@ -452,3 +455,5 @@ export default async function handler(
     parsed,
   })
 }
+
+export default withSentry(handler)

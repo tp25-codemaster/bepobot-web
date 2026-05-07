@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import * as Sentry from '@sentry/react'
-import { supabase, isDemoMode } from '../lib/supabase'
+import { supabase, isDemoMode } from '../lib/supabase.js'
+import { useNavigate } from 'react-router-dom'
+
 interface Profile {
   id: string
   full_name: string | null
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (isDemoMode) {
@@ -99,6 +102,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { error: translateError(error.message) }
+
+    // After successful login, check for apartments
+    const { data: apartments, error: apartmentsError } = await supabase
+      .from('apartments')
+      .select('id')
+
+    if (apartmentsError) {
+      console.error('Error fetching apartments:', apartmentsError)
+      return { error: 'Greška prilikom provjere apartmana.' }
+    }
+
+    if (!apartments || apartments.length === 0) {
+      navigate('/onboarding')
+    } else {
+      navigate('/')
+    }
+
     return { error: null }
   }
 

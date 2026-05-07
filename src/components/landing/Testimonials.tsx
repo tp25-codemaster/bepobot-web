@@ -1,22 +1,32 @@
 import { TESTIMONIALS } from '../../lib/constants'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
+import { useLang } from '../../hooks/useLang'
 
 export default function Testimonials() {
   const ref = useScrollReveal()
+  const { t } = useLang()
 
   return (
     <section className="py-20 sm:py-28 bg-light">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div ref={ref} className="reveal text-center mb-12">
-          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Beta korisnici kažu</p>
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
+            {t('Beta korisnici kažu', 'Beta users say')}
+          </p>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-text tracking-tight">
-            Ne vjerujte nama — vjerujte njima.
+            {t('Ne vjerujte nama — vjerujte njima.', "Don't take our word for it.")}
           </h2>
         </div>
 
         <div className="grid sm:grid-cols-3 gap-5">
-          {TESTIMONIALS.map((t, i) => (
-            <TestimonialCard key={i} {...t} index={i} />
+          {TESTIMONIALS.map((item, i) => (
+            <TestimonialCard
+              key={i}
+              name={item.name}
+              detail={item.detail}
+              quote={t(item.quote.hr, item.quote.en)}
+              index={i}
+            />
           ))}
         </div>
       </div>

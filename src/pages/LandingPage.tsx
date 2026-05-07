@@ -53,28 +53,28 @@ export default function LandingPage() {
                   href="/app"
                   className="px-8 py-4 bg-white text-primary font-bold rounded-xl text-center hover:bg-white/90 transition-all hover:shadow-lg hover:shadow-white/20"
                 >
-                  Započni besplatno 14 dana
+                  {t('Započni besplatno 14 dana', 'Start free for 14 days')}
                 </a>
                 <a
                   href="#how-it-works"
                   className="px-8 py-4 border-2 border-white/20 text-white font-semibold rounded-xl text-center hover:border-white/40 hover:bg-white/5 transition-all"
                 >
-                  Pogledaj kako radi
+                  {t('Pogledaj kako radi', 'See how it works')}
                 </a>
               </div>
 
               <div className="mt-12 flex gap-8 sm:gap-12">
                 <div>
                   <div className="text-3xl font-extrabold text-primary-light">22h</div>
-                  <div className="text-xs text-white/40 mt-1">uštede tjedno</div>
+                  <div className="text-xs text-white/40 mt-1">{t('uštede tjedno', 'saved weekly')}</div>
                 </div>
                 <div>
                   <div className="text-3xl font-extrabold text-primary-light">3 min</div>
-                  <div className="text-xs text-white/40 mt-1">do check-in infoa</div>
+                  <div className="text-xs text-white/40 mt-1">{t('do check-in infoa', 'to check-in info')}</div>
                 </div>
                 <div>
                   <div className="text-3xl font-extrabold text-primary-light">0€</div>
-                  <div className="text-xs text-white/40 mt-1">ekstra osoblja</div>
+                  <div className="text-xs text-white/40 mt-1">{t('ekstra osoblja', 'extra staff')}</div>
                 </div>
               </div>
             </div>

@@ -22,6 +22,7 @@ import {
 } from '../server/bot-tools.js'
 import { checkRateLimit, LIMITS } from './_lib/ratelimit.js'
 import { setCorsHeaders } from './_lib/cors.js'
+import { withSentry, captureError, setSentryUser } from './_lib/sentry.js'
 
 interface VercelRequest {
   method?: string
@@ -79,7 +80,7 @@ async function callAnthropic(payload: Record<string, unknown>): Promise<Anthropi
   return data
 }
 
-export default async function handler(
+async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
@@ -107,6 +108,7 @@ export default async function handler(
     res.status(401).json({ success: false, error: 'Invalid session' })
     return
   }
+  setSentryUser(user.id)
 
   // Rate limit: 30 msgs/min per user
   const rl = await checkRateLimit('bot-chat', user.id, LIMITS.BOT_CHAT)
@@ -261,9 +263,12 @@ export default async function handler(
       toolsExecuted: executedNames,
     })
   } catch (e) {
+    captureError(e)
     res.status(500).json({
       success: false,
       error: 'Handler crash: ' + (e as Error).message,
     })
   }
 }
+
+export default withSentry(handler)
