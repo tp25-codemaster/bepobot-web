@@ -272,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 2. Fetch email sa Gmail API
   const msg = await fetchGmailMessage(email_id, gmail_access_token)
   if (!msg) {
-    // Return 500 so QStash retries — Gmail fetch failures are transient
+    console.error(`[process-email] Gmail fetch failed for email_id=${email_id} user_id=${user_id}`)
     res.status(500).json({ success: false, error: 'Gmail fetch failed' })
     return
   }
@@ -288,8 +288,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { parsed, error: parseErr } = await parseWithAnthropic(from, subject, body, receivedAt)
 
   if (!parsed) {
-    // Return 500 so QStash retries on transient Anthropic errors (rate limit, timeout, 5xx).
-    // Retries are bounded by QStash retry limit (3), so permanent failures don't loop forever.
+    console.error(`[process-email] Anthropic parse failed: ${parseErr}`)
     res.status(500).json({ success: false, error: parseErr || 'Parse failed' })
     return
   }
