@@ -85,7 +85,7 @@ interface ParsedBooking {
 }
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'moonshotai/kimi-k2.5'
+const MODEL = 'anthropic/claude-haiku-4.5'
 
 const EMAIL_PARSER_SYSTEM = `Ti si parser koji cita email i odlucuje je li to POTVRĐENA nova rezervacija za iznajmljivaca apartmana u Hrvatskoj.
 
