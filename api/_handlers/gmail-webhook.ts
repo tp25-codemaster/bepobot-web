@@ -225,9 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Look up user by Gmail email address
   const supabase = getSupabaseAdmin()
-  console.log(`[webhook] looking up emailAddress=${JSON.stringify(emailAddress)} len=${emailAddress.length}`)
-
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from('profiles')
     .select('id, gmail_last_history_id')
     .eq('gmail_email', emailAddress)
@@ -235,20 +233,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .single()
 
   if (!profile) {
-    console.log(`[webhook] profile not found. error=${JSON.stringify(profileError)}`)
-    // Diagnostic: try without gmail_connected filter
-    const { data: anyProfile, error: anyErr } = await supabase
-      .from('profiles')
-      .select('id, gmail_email, gmail_connected')
-      .eq('gmail_email', emailAddress)
-      .maybeSingle()
-    console.log(`[webhook] without connected filter: ${JSON.stringify(anyProfile)} err=${JSON.stringify(anyErr)}`)
-    // Diagnostic: check what gmail_emails exist
-    const { data: allProfiles } = await supabase
-      .from('profiles')
-      .select('id, gmail_email, gmail_connected')
-      .not('gmail_email', 'is', null)
-    console.log(`[webhook] all gmail profiles: ${JSON.stringify(allProfiles)}`)
+    console.log(`No connected user found for ${emailAddress}`)
     res.status(204).end()
     return
   }
