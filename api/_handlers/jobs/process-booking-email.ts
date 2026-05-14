@@ -67,6 +67,8 @@ interface GmailMessage {
 
 interface ParsedBooking {
   is_booking: boolean
+  is_inquiry?: boolean
+  inquiry_summary?: string | null
   reason_if_not?: string
   source?: string
   apartment_name?: string | null
@@ -82,45 +84,57 @@ interface ParsedBooking {
   confidence?: 'high' | 'medium' | 'low'
 }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const MODEL = 'anthropic/claude-haiku-4.5'
 
-// Cached after first call — eliminira 90% input token troška na system promptu
-const EMAIL_PARSER_SYSTEM = `Ti si parser koji cita email i odlucuje je li to nova rezervacija za iznajmljivaca apartmana u Hrvatskoj.
+const EMAIL_PARSER_SYSTEM = `Ti si parser koji cita email i odlucuje je li to POTVRĐENA nova rezervacija za iznajmljivaca apartmana u Hrvatskoj.
 
 Zadatak: ekstrahiraj kljucne podatke u strukturirani JSON kroz tool call booking_data.
 
-Pravila:
-- Ako email NIJE rezervacija (newsletter, marketing, bill, reply, itd.) postavi is_booking=false i navedi razlog u reason_if_not.
-- Ako email JEST rezervacija, ispuni polja. Za polja koja nisu dostupna, postavi null.
-- Datumi MORAJU biti u formatu YYYY-MM-DD. Ako pise "15. lipnja 2026" pretvori u "2026-06-15".
-- apartment_name je kljuc da mapiramo na host-ov apartman (npr. "Villa Panorama", "Apartman 2"). Ako nije eksplicitno, stavi null.
-- source: booking.com ako je email s @booking.com, airbnb ako je s @airbnb.com, direct ako je direct inquiry, other inace.
-- Na temelju from emaila mozes brzo odluciti izvor.
-- Ako podaci su dvosmisleni postavi confidence=low.
+PRAVILA ZA is_booking:
+- TRUE samo ako je email POTVRDA rezervacije (booking confirmation). Mora imati: gost, datumi dolaska/odlaska.
+- FALSE za: newsletter, marketing, review request, cancellation, modification request, upit gosta koji jos nije potvrdjen, bills, spam, random emailovi.
+- Upit "Can I book June 15-18?" je FALSE — nije potvrda, samo pitanje.
+- Cancellation email je FALSE — rezervacija se OTKAZUJE, ne kreira.
+
+UPITI (is_inquiry):
+- Ako je is_booking=false ali email IZGLEDA kao upit za rezervaciju (osoba pita za dostupnost, cijenu, uvjete) postavi is_inquiry=true.
+- inquiry_summary: kratki sažetak upita na hrvatskom, max 2 rečenice.
+- Ako is_booking=true, is_inquiry=false.
+- Spam, newsletter, bill → is_inquiry=false.
+
+OSTALA PRAVILA:
+- Datumi MORAJU biti YYYY-MM-DD. "15. lipnja 2026" → "2026-06-15".
+- source: booking.com/@booking.com, airbnb/@airbnb.com, direct/direct inquiry, other inace.
 - Ne izmisljaj. Ako nesto ne vidis u tekstu, ostavi null.`
 
 const BOOKING_TOOL = {
-  name: 'booking_data',
-  description: 'Vraca strukturirane podatke parsirane iz email-a',
-  input_schema: {
-    type: 'object',
-    properties: {
-      is_booking: { type: 'boolean' },
-      reason_if_not: { type: 'string' },
-      source: { type: 'string', enum: ['booking.com', 'airbnb', 'direct', 'other'] },
-      apartment_name: { type: ['string', 'null'] },
-      guest_name: { type: ['string', 'null'] },
-      guest_surname: { type: ['string', 'null'] },
-      guest_email: { type: ['string', 'null'] },
-      guest_phone: { type: ['string', 'null'] },
-      guest_count: { type: ['integer', 'null'] },
-      check_in_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
-      check_out_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
-      total_price: { type: ['number', 'null'] },
-      currency: { type: ['string', 'null'] },
-      confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+  type: 'function' as const,
+  function: {
+    name: 'booking_data',
+    description: 'Vraca strukturirane podatke parsirane iz email-a',
+    parameters: {
+      type: 'object',
+      properties: {
+        is_booking: { type: 'boolean' },
+        is_inquiry: { type: 'boolean' },
+        inquiry_summary: { type: ['string', 'null'] },
+        reason_if_not: { type: 'string' },
+        source: { type: 'string', enum: ['booking.com', 'airbnb', 'direct', 'other'] },
+        apartment_name: { type: ['string', 'null'] },
+        guest_name: { type: ['string', 'null'] },
+        guest_surname: { type: ['string', 'null'] },
+        guest_email: { type: ['string', 'null'] },
+        guest_phone: { type: ['string', 'null'] },
+        guest_count: { type: ['integer', 'null'] },
+        check_in_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+        check_out_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+        total_price: { type: ['number', 'null'] },
+        currency: { type: ['string', 'null'] },
+        confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+      },
+      required: ['is_booking'],
     },
-    required: ['is_booking'],
   },
 }
 
@@ -180,41 +194,44 @@ async function parseWithAnthropic(
   body: string,
   receivedAt: string
 ): Promise<{ parsed: ParsedBooking | null; error?: string }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return { parsed: null, error: 'ANTHROPIC_API_KEY not set' }
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) return { parsed: null, error: 'OPENROUTER_API_KEY not set' }
 
   const userContent =
     `Email metapodaci:\nFrom: ${from || '(nepoznato)'}\nSubject: ${subject || '(bez subjecta)'}\nReceived: ${receivedAt}\n\n` +
     `Tijelo emaila:\n${body.slice(0, 8000) || '(prazno)'}`
 
   try {
-    const res = await fetch(ANTHROPIC_URL, {
+    const res = await fetch(OPENROUTER_URL, {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://bepobot-web.vercel.app',
+        'X-Title': 'BepoBot Email Parser',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: MODEL,
+        messages: [
+          { role: 'system', content: EMAIL_PARSER_SYSTEM },
+          { role: 'user', content: userContent },
+        ],
+        tools: [BOOKING_TOOL],
+        tool_choice: { type: 'function', function: { name: 'booking_data' } },
         max_tokens: 600,
         temperature: 0.1,
-        system: [{ type: 'text', text: EMAIL_PARSER_SYSTEM, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: userContent }],
-        tools: [BOOKING_TOOL],
-        tool_choice: { type: 'tool', name: 'booking_data' },
       }),
     })
     const data = (await res.json()) as {
-      content?: Array<{ type: string; input: Record<string, unknown> }>
+      choices?: Array<{ message?: { tool_calls?: Array<{ function: { arguments: string } }> } }>
       error?: { message?: string }
     }
     if (!res.ok) {
-      return { parsed: null, error: 'Anthropic: ' + (data.error?.message || `HTTP ${res.status}`) }
+      return { parsed: null, error: 'LLM: ' + (data.error?.message || `HTTP ${res.status}`) }
     }
-    const toolUse = data.content?.find((c) => c.type === 'tool_use')
-    if (!toolUse) return { parsed: null, error: 'Anthropic did not return tool_use' }
-    return { parsed: toolUse.input as ParsedBooking }
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0]
+    if (!toolCall) return { parsed: null, error: 'LLM did not return tool_call' }
+    return { parsed: JSON.parse(toolCall.function.arguments) as ParsedBooking }
   } catch (e) {
     return { parsed: null, error: (e as Error).message }
   }
