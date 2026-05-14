@@ -4,7 +4,7 @@ import AppShell from '../../components/app/AppShell'
 import EmptyState from '../../components/app/EmptyState'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChat } from '../../hooks/useChat'
-import { useReservations, usePendingReservations, useGuestsWithoutEmailCount } from '../../hooks/queries'
+import { useReservations, usePendingReservations, useGuestsWithoutEmailCount, useInquiries } from '../../hooks/queries'
 import ChatBubble from '../../components/chat/ChatBubble'
 import TypingIndicator from '../../components/chat/TypingIndicator'
 import { renderMarkdown } from '../../lib/markdown'
@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const { data: allReservations = [], isLoading: loadingRes } = useReservations()
   const { data: pendingData = [] } = usePendingReservations()
   const { data: guestsWithoutEmail = 0 } = useGuestsWithoutEmailCount()
+  const { data: inquiries = [] } = useInquiries()
   const loading = loadingRes
 
   const {
@@ -255,6 +256,52 @@ export default function DashboardPage() {
                     </svg>
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Email inquiries */}
+          {inquiries.length > 0 && (
+            <div className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-amber-100 flex items-center gap-2">
+                <span className="text-base">✉️</span>
+                <h2 className="font-semibold text-text text-sm flex-1">Upiti gostiju</h2>
+                <span className="text-xs font-semibold bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">{inquiries.length}</span>
+              </div>
+              <div className="divide-y divide-border">
+                {inquiries.map(inq => {
+                  const summary = inq.inquiry_summary || inq.parsed_data?.inquiry_summary || null
+                  const replyHref = inq.email_from ? `mailto:${inq.email_from.replace(/.*<(.+)>/, '$1')}` : null
+                  return (
+                    <div key={inq.id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <span className="text-sm font-medium text-text truncate">{inq.email_from || '(nepoznat)'}</span>
+                        <span className="text-[11px] text-text-muted flex-shrink-0">
+                          {inq.email_received_at
+                            ? new Date(inq.email_received_at).toLocaleDateString('hr-HR', { day: 'numeric', month: 'short' })
+                            : ''}
+                        </span>
+                      </div>
+                      {inq.email_subject && (
+                        <p className="text-xs text-text-muted mb-1 truncate">{inq.email_subject}</p>
+                      )}
+                      {summary && (
+                        <p className="text-xs text-text bg-amber-50 rounded-lg px-3 py-2 mb-2 leading-relaxed">{summary}</p>
+                      )}
+                      {replyHref && (
+                        <a
+                          href={replyHref}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/8 rounded-lg px-3 py-1.5 hover:bg-primary/15 transition-colors"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+                          </svg>
+                          Odgovori
+                        </a>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

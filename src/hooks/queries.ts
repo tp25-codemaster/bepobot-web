@@ -180,6 +180,46 @@ export function useGuestsWithoutEmailCount() {
   })
 }
 
+// ========== Email Inquiries ==========
+
+export interface InquiryRow {
+  id: string
+  email_from: string | null
+  email_subject: string | null
+  email_received_at: string | null
+  inquiry_summary: string | null
+  parsed_data: {
+    guest_name?: string | null
+    guest_email?: string | null
+    check_in_date?: string | null
+    check_out_date?: string | null
+    guest_count?: number | null
+    inquiry_summary?: string | null
+  } | null
+  created_at: string
+}
+
+export function useInquiries() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['inquiries', user?.id],
+    queryFn: async () => {
+      if (!user || isDemoMode) return [] as InquiryRow[]
+      const { data, error } = await supabase
+        .from('email_log')
+        .select('id, email_from, email_subject, email_received_at, inquiry_summary, parsed_data, created_at')
+        .eq('user_id', user.id)
+        .eq('action', 'inquiry')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error) throw error
+      return (data || []) as InquiryRow[]
+    },
+    enabled: !!user && !isDemoMode,
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
 // ========== Utility: invalidate all user data ==========
 
 export function useInvalidateUserData() {
