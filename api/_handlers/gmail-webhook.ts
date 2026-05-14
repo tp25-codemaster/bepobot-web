@@ -248,8 +248,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  // Fetch history from last known historyId (or current historyId - 1)
-  const lastHistoryId = profile.gmail_last_history_id || historyId
+  // Fetch history from last known historyId. On first run (null), step back one so
+  // the notification's own messages are included (history.list is exclusive of startHistoryId).
+  const lastHistoryId = profile.gmail_last_history_id || String(parseInt(historyId, 10) - 1)
   const messageIds = await fetchGmailHistory(accessToken, lastHistoryId)
 
   // Enqueue each new message as a QStash job (async, retries built-in)
