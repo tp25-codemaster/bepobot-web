@@ -225,7 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Look up user by Gmail email address
   const supabase = getSupabaseAdmin()
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id, gmail_last_history_id')
     .eq('gmail_email', emailAddress)
@@ -233,7 +233,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .single()
 
   if (!profile) {
-    console.log(`No connected user found for ${emailAddress}`)
+    console.log(`No connected user found for ${emailAddress}`, JSON.stringify(profileError))
     res.status(204).end()
     return
   }
