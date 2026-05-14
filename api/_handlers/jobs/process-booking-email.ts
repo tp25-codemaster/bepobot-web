@@ -218,7 +218,7 @@ async function parseWithAnthropic(
         ],
         tools: [BOOKING_TOOL],
         tool_choice: { type: 'function', function: { name: 'booking_data' } },
-        max_tokens: 600,
+        max_tokens: 1500,
         temperature: 0.1,
       }),
     })
