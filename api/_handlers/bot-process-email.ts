@@ -340,30 +340,7 @@ async function handler(
     return
   }
 
-  // 4a. Blokaj low-confidence direct inquiries — nisu potvrđene rezervacije
-  // Booking.com/Airbnb emailovi su uvijek high/medium; low znači netko pita pitanje
-  if (parsed.confidence === 'low' && parsed.source !== 'booking.com' && parsed.source !== 'airbnb') {
-    await admin.from('email_log').insert({
-      user_id: payload.user_id,
-      gmail_message_id: payload.gmail_message_id || null,
-      email_from: payload.email_from || null,
-      email_subject: payload.email_subject || null,
-      email_received_at: payload.email_received_at || null,
-      is_booking: true,
-      parsed_data: parsed,
-      action: 'skipped',
-      parse_error: 'Niska pouzdanost — možda upit, ne potvrđena rezervacija',
-    })
-    res.status(200).json({
-      success: true,
-      action: 'skipped',
-      reason: 'low_confidence_not_platform',
-      parsed,
-    })
-    return
-  }
-
-  // 4b. Validacija osnovnih polja
+  // 4. Validacija osnovnih polja
   if (!parsed.check_in_date || !parsed.check_out_date) {
     await admin.from('email_log').insert({
       user_id: payload.user_id,
