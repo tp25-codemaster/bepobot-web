@@ -331,13 +331,13 @@ export async function executeConfirmPendingReservation(
   if (pending.platform) noteParts.push(`Platforma: ${pending.platform}`)
   if (pending.confirmation_number)
     noteParts.push(`Kod: ${pending.confirmation_number}`)
+  if (pending.guest_contact) noteParts.push(`Kontakt: ${pending.guest_contact}`)
   if (pending.notes) noteParts.push(pending.notes)
 
-  const insertPayload = {
+  const insertPayload: Record<string, unknown> = {
     user_id: userId,
-    apartment_id: pending.apartment_id,
+    apartment_id: pending.apartment_id || null,
     guest_name: pending.guest_name,
-    guest_contact: pending.guest_contact,
     guests_count: pending.guests_count || 1,
     check_in: pending.check_in,
     check_out: pending.check_out,
