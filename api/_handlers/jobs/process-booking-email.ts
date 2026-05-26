@@ -371,10 +371,26 @@ async function processEmailJob(req: VercelRequest, res: VercelResponse) {
       parsed_booking: false,
       reservation_created: false,
     })
+    // Upiti idu u email_log tablicu da se prikažu u "Upiti gostiju" sekciji
+    if (parsed.is_inquiry) {
+      await admin.from('email_log').insert({
+        user_id,
+        gmail_message_id: email_id,
+        email_from: from || null,
+        email_subject: subject || null,
+        email_received_at: receivedAt,
+        is_booking: false,
+        parsed_data: parsed,
+        action: 'inquiry',
+        inquiry_summary: parsed.inquiry_summary || null,
+      }).then(({ error }) => {
+        if (error) console.error('[process-email] email_log inquiry insert failed:', error.message)
+      })
+    }
     res.status(200).json({
       success: true,
-      action: 'not_booking',
-      reason: parsed.reason_if_not || 'Not a booking email',
+      action: parsed.is_inquiry ? 'inquiry' : 'not_booking',
+      reason: parsed.reason_if_not || null,
     })
     return
   }
