@@ -380,25 +380,31 @@ async function processEmailJob(req: VercelRequest, res: VercelResponse) {
   }
 
   // 4. Insert u pending_reservations — host potvrđuje ručno
+  // Tablica shema: guest_name NOT NULL, check_in NOT NULL, check_out NOT NULL
+  if (!parsed.check_in_date || !parsed.check_out_date) {
+    res.status(200).json({ success: true, action: 'not_booking', reason: 'Missing check-in/out dates' })
+    return
+  }
+
   const guestName =
-    [parsed.guest_name, parsed.guest_surname].filter(Boolean).join(' ').trim() || null
+    [parsed.guest_name, parsed.guest_surname].filter(Boolean).join(' ').trim() || 'Nepoznat gost'
+
+  const contactParts = [
+    parsed.guest_email ? `email: ${parsed.guest_email}` : null,
+    parsed.guest_phone ? `tel: ${parsed.guest_phone}` : null,
+  ].filter(Boolean)
 
   const { error: insertErr } = await admin.from('pending_reservations').insert({
     user_id,
     gmail_message_id: email_id,
-    email_from: from || null,
-    email_subject: subject || null,
-    email_received_at: receivedAt,
-    parsed_data: parsed,
     guest_name: guestName,
-    guest_email: parsed.guest_email || null,
-    guest_phone: parsed.guest_phone || null,
-    check_in: parsed.check_in_date || null,
-    check_out: parsed.check_out_date || null,
-    source: parsed.source || 'other',
+    guest_contact: parsed.guest_email || parsed.guest_phone || null,
+    check_in: parsed.check_in_date,
+    check_out: parsed.check_out_date,
+    platform: parsed.source || 'other',
     apartment_name_raw: parsed.apartment_name || null,
-    confidence: parsed.confidence || 'low',
     status: 'pending',
+    notes: contactParts.length > 0 ? contactParts.join(' | ') : null,
   })
 
   if (insertErr) {
