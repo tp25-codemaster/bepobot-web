@@ -267,6 +267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const admin = getSupabaseAdmin()
+  console.log(`[process-email] user_id=${user_id} email_id=${email_id}`)
 
   // Refresh access token (expires every hour)
   const emailApiSecret = (process.env.EMAIL_API_SECRET || '').trim()
@@ -279,26 +280,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id, secret: emailApiSecret }),
       })
-      const refreshData = await refreshRes.json() as { success?: boolean; access_token?: string }
+      const refreshData = await refreshRes.json() as { success?: boolean; access_token?: string; error?: string }
+      console.log(`[process-email] token refresh: success=${refreshData.success} error=${refreshData.error || 'none'}`)
       if (refreshData.success && refreshData.access_token) {
         gmail_access_token = refreshData.access_token
       }
-    } catch { /* fallback to stored token */ }
+    } catch (e) {
+      console.error('[process-email] token refresh threw:', (e as Error).message)
+    }
+  } else {
+    console.log('[process-email] EMAIL_API_SECRET not set, skipping refresh')
   }
 
   // Fallback: use stored token if refresh failed
   if (!gmail_access_token) {
+    console.log('[process-email] using stored token fallback')
     const { data: profile } = await admin
       .from('profiles')
       .select('gmail_access_token')
       .eq('id', user_id)
       .single()
     if (!profile?.gmail_access_token) {
+      console.error('[process-email] no gmail_access_token in DB')
       res.status(400).json({ error: 'No Gmail access token for user' })
       return
     }
     gmail_access_token = safeDecrypt(profile.gmail_access_token)
   }
+  console.log(`[process-email] got token, fetching email...`)
 
   // 1. Dedup — provjeri je li email već procesiran
   const { data: existing } = await admin
