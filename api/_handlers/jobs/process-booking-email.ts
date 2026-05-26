@@ -243,11 +243,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const valid = await verifyQStash(req)
+  let valid = false
+  try {
+    valid = await verifyQStash(req)
+  } catch (e) {
+    console.error('[process-email] verifyQStash threw:', (e as Error).message)
+    res.status(500).json({ error: 'QStash verify error: ' + (e as Error).message })
+    return
+  }
   if (!valid) {
+    console.error('[process-email] Invalid QStash signature')
     res.status(401).json({ error: 'Invalid QStash signature' })
     return
   }
+  console.log('[process-email] QStash verified, processing job')
 
   const payload = (req.body || {}) as Partial<WorkerPayload>
   const { user_id, email_id } = payload
