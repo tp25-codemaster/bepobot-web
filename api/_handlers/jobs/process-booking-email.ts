@@ -256,14 +256,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(401).json({ error: 'Invalid QStash signature' })
     return
   }
-  console.log('[process-email] QStash verified, processing job')
+  process.stdout.write('[process-email] QStash verified, processing job\n')
 
+  try {
+    await processEmailJob(req, res)
+  } catch (e) {
+    process.stderr.write(`[process-email] UNCAUGHT FATAL: ${(e as Error).message}\n${(e as Error).stack || ''}\n`)
+    try { res.status(500).json({ error: 'Fatal: ' + (e as Error).message }) } catch {}
+  }
+}
+
+async function processEmailJob(req: VercelRequest, res: VercelResponse) {
   const payload = (req.body || {}) as Partial<WorkerPayload>
   const { user_id, email_id } = payload
-  console.log(`[process-email] payload user_id=${user_id} email_id=${email_id}`)
+  process.stdout.write(`[process-email] payload user_id=${user_id} email_id=${email_id}\n`)
 
   if (!user_id || !email_id) {
-    console.error('[process-email] missing payload fields, body:', JSON.stringify(req.body))
+    process.stderr.write(`[process-email] missing payload, body=${JSON.stringify(req.body)}\n`)
     res.status(400).json({ error: 'Missing required fields: user_id, email_id' })
     return
   }
@@ -271,12 +280,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let admin
   try {
     admin = getSupabaseAdmin()
+    process.stdout.write('[process-email] admin ok\n')
   } catch (e) {
-    console.error('[process-email] getSupabaseAdmin threw:', (e as Error).message)
+    process.stderr.write(`[process-email] getSupabaseAdmin threw: ${(e as Error).message}\n`)
     res.status(500).json({ error: 'Supabase admin init failed: ' + (e as Error).message })
     return
   }
-  console.log(`[process-email] admin ok, user_id=${user_id} email_id=${email_id}`)
 
   // Refresh access token (expires every hour)
   const emailApiSecret = (process.env.EMAIL_API_SECRET || '').trim()
