@@ -259,19 +259,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const admin = getSupabaseAdmin()
 
-  // Fetch access token from DB (never passed in payload)
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('gmail_access_token')
-    .eq('id', user_id)
-    .single()
-
-  if (!profile?.gmail_access_token) {
-    res.status(400).json({ error: 'No Gmail access token for user' })
-    return
+  // Refresh access token (expires every hour)
+  const emailApiSecret = (process.env.EMAIL_API_SECRET || '').trim()
+  const appUrl = (process.env.APP_URL || 'https://bepobot-web.vercel.app').replace(/\/$/, '')
+  let gmail_access_token = ''
+  if (emailApiSecret) {
+    try {
+      const refreshRes = await fetch(`${appUrl}/api/gmail-refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, secret: emailApiSecret }),
+      })
+      const refreshData = await refreshRes.json() as { success?: boolean; access_token?: string }
+      if (refreshData.success && refreshData.access_token) {
+        gmail_access_token = refreshData.access_token
+      }
+    } catch { /* fallback to stored token */ }
   }
 
-  const gmail_access_token = safeDecrypt(profile.gmail_access_token)
+  // Fallback: use stored token if refresh failed
+  if (!gmail_access_token) {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('gmail_access_token')
+      .eq('id', user_id)
+      .single()
+    if (!profile?.gmail_access_token) {
+      res.status(400).json({ error: 'No Gmail access token for user' })
+      return
+    }
+    gmail_access_token = safeDecrypt(profile.gmail_access_token)
+  }
 
   // 1. Dedup — provjeri je li email već procesiran
   const { data: existing } = await admin
