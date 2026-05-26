@@ -151,9 +151,9 @@ async function fetchGmailMessage(
   }
 }
 
-const APP_URL = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : 'https://bepobot-web.vercel.app'
+const APP_URL = process.env.APP_URL
+  || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
+  || 'https://bepobot-web.vercel.app'
 
 async function enqueueEmailJob(
   userId: string,
