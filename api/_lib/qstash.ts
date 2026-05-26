@@ -18,9 +18,9 @@ import { getSupabaseAdmin } from '../../server/supabase.js'
 const QSTASH_TOKEN = (process.env.QSTASH_TOKEN || '').trim()
 const QSTASH_CURRENT_SIGNING_KEY = (process.env.QSTASH_CURRENT_SIGNING_KEY || '').trim()
 const QSTASH_NEXT_SIGNING_KEY = (process.env.QSTASH_NEXT_SIGNING_KEY || '').trim()
-const APP_URL = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : 'https://bepobot-web.vercel.app'
+const APP_URL = process.env.APP_URL
+  || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
+  || 'https://bepobot-web.vercel.app'
 
 let client: Client | null = null
 let receiver: Receiver | null = null
