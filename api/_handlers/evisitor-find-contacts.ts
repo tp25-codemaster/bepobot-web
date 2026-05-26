@@ -87,7 +87,7 @@ async function findContactForGuest(
     // Extract phone from body
     if (!foundPhone) {
       let bodyText = ''
-      const parts = msgData.payload?.parts || (msgData.payload ? [msgData.payload] : [])
+      const parts = msgData.payload?.parts || []
       for (const part of parts) {
         if (part?.mimeType === 'text/plain' && part?.body?.data) {
           bodyText += Buffer.from(part.body.data, 'base64').toString('utf-8')

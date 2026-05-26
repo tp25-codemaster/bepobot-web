@@ -371,7 +371,7 @@ export async function executeNotifyCleaner(
   supabase: SupabaseClient,
   userId: string,
   reservationId: string
-): Promise<{ success: boolean; notified?: string[]; error?: string }> {
+): Promise<{ success: boolean; notified?: string[]; error?: string; email_sent?: boolean; manual?: boolean; cleaners?: Array<{ name: string; email: string }>; message?: string }> {
   const { data: reservation, error: resErr } = await supabase
     .from('reservations')
     .select(
