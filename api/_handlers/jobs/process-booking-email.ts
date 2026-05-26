@@ -260,14 +260,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const payload = (req.body || {}) as Partial<WorkerPayload>
   const { user_id, email_id } = payload
+  console.log(`[process-email] payload user_id=${user_id} email_id=${email_id}`)
 
   if (!user_id || !email_id) {
+    console.error('[process-email] missing payload fields, body:', JSON.stringify(req.body))
     res.status(400).json({ error: 'Missing required fields: user_id, email_id' })
     return
   }
 
-  const admin = getSupabaseAdmin()
-  console.log(`[process-email] user_id=${user_id} email_id=${email_id}`)
+  let admin
+  try {
+    admin = getSupabaseAdmin()
+  } catch (e) {
+    console.error('[process-email] getSupabaseAdmin threw:', (e as Error).message)
+    res.status(500).json({ error: 'Supabase admin init failed: ' + (e as Error).message })
+    return
+  }
+  console.log(`[process-email] admin ok, user_id=${user_id} email_id=${email_id}`)
 
   // Refresh access token (expires every hour)
   const emailApiSecret = (process.env.EMAIL_API_SECRET || '').trim()
