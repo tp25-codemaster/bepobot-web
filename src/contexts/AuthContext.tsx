@@ -60,12 +60,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        fetchProfile(session.user.id)
         Sentry.setUser({ id: session.user.id })
+        // On fresh login/signup, fetch profile then navigate
+        if (event === 'SIGNED_IN') {
+          fetchProfile(session.user.id).then((prof) => {
+            if (!prof?.onboarding_complete) {
+              navigate('/onboarding')
+            } else {
+              // Only navigate to app if currently on login page
+              if (window.location.pathname === '/app/login') {
+                navigate('/app')
+              }
+            }
+          })
+        } else {
+          fetchProfile(session.user.id)
+        }
       } else {
         setProfile(null)
         Sentry.setUser(null)
@@ -75,13 +89,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  async function fetchProfile(userId: string) {
+  async function fetchProfile(userId: string): Promise<Profile | null> {
     const { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
-    if (data) setProfile(data)
+    if (data) setProfile(data as Profile)
+    return (data as Profile) || null
   }
 
   async function signUp(email: string, password: string, fullName?: string) {
@@ -96,26 +111,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await supabase.from('profiles').update({ full_name: fullName }).eq('id', data.user.id)
     }
 
-    navigate('/onboarding')
+    // Navigation handled by onAuthStateChange SIGNED_IN event
     return { error: null }
   }
 
   async function signIn(email: string, password: string) {
-    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { error: translateError(error.message) }
 
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('onboarding_complete')
-      .eq('id', signInData.user.id)
-      .single()
-
-    if (!prof?.onboarding_complete) {
-      navigate('/onboarding')
-    } else {
-      navigate('/app')
-    }
-
+    // Navigation handled by onAuthStateChange SIGNED_IN event
     return { error: null }
   }
 
