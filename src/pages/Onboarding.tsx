@@ -20,6 +20,7 @@ export function Onboarding() {
   const [input, setInput] = useState('')
   const [state, setState] = useState<OnboardingState>({ step: 'welcome' })
   const [done, setDone] = useState(false)
+  const [actionButton, setActionButton] = useState<{ label: string; href: string } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -49,6 +50,7 @@ export function Onboarding() {
     setInput('')
 
     setMessages((prev) => [...prev, { role: 'user', text }])
+    setActionButton(null)
 
     const result = processOnboardingInput(text, state)
     setState(result.state)
@@ -81,11 +83,11 @@ export function Onboarding() {
     }
 
     if (result.action === 'open_gmail') {
-      window.open('/api/gmail-connect', '_self')
+      setActionButton({ label: '📧 Poveži Gmail', href: '/api/gmail-connect' })
     }
 
     if (result.action === 'open_evisitor') {
-      // Just show the message, user goes there manually
+      setActionButton({ label: '🏛️ Otvori eVisitor postavke', href: '/app/evisitor' })
     }
 
     if (result.action === 'complete_onboarding' && user) {
@@ -164,6 +166,16 @@ export function Onboarding() {
             </div>
           </div>
         ))}
+        {actionButton && (
+          <div className="flex justify-start pl-9">
+            <a
+              href={actionButton.href}
+              className="inline-block px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              {actionButton.label}
+            </a>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
