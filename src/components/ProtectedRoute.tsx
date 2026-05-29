@@ -1,8 +1,9 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, isDemo } = useAuth()
+  const { user, profile, loading, isDemo } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return (
@@ -12,10 +13,15 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     )
   }
 
-  // Demo mode: allow access without auth
   if (isDemo) return <>{children}</>
 
   if (!user) return <Navigate to="/app/login" replace />
+
+  // Redirect to onboarding if not complete — except when already there
+  const isOnboarding = location.pathname === '/onboarding'
+  if (!isOnboarding && profile && !profile.onboarding_complete) {
+    return <Navigate to="/onboarding" replace />
+  }
 
   return <>{children}</>
 }
