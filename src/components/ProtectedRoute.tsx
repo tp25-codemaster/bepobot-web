@@ -2,21 +2,23 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, isDemo } = useAuth()
+  const { user, profile, loading, profileLoading, isDemo } = useAuth()
   const location = useLocation()
 
   if (isDemo) return <>{children}</>
 
-  if (!user && !loading) return <Navigate to="/app/login" replace />
-
-  // Wait for both auth and profile to load before rendering
-  if (loading || (user && !profile)) {
+  // Block rendering until we know who the user is AND where to send them.
+  // profileLoading stays true from the moment a user is detected until the
+  // profile fetch resolves, so no protected page can render in the gap.
+  if (loading || profileLoading) {
     return (
       <div className="min-h-svh bg-light flex items-center justify-center">
         <div className="text-primary font-semibold">Ucitavanje...</div>
       </div>
     )
   }
+
+  if (!user) return <Navigate to="/app/login" replace />
 
   // Redirect to onboarding if not complete — except when already there
   const isOnboarding = location.pathname === '/onboarding'

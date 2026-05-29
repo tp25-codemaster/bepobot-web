@@ -14,7 +14,7 @@ interface Msg {
 }
 
 export function Onboarding() {
-  const { user, profile } = useAuth()
+  const { user, profile, updateProfile } = useAuth()
   const navigate = useNavigate()
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -91,7 +91,7 @@ export function Onboarding() {
     }
 
     if (result.action === 'complete_onboarding' && user) {
-      await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id)
+      await updateProfile({ onboarding_complete: true })
       setDone(true)
     }
 

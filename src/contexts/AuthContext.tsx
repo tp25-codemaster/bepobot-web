@@ -28,6 +28,7 @@ interface AuthContextType {
   profile: Profile | null
   session: Session | null
   loading: boolean
+  profileLoading: boolean
   isDemo: boolean
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
@@ -42,11 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(true)
   const navigate = useNavigate()
 
   useEffect(() => {
     if (isDemoMode) {
       setLoading(false)
+      setProfileLoading(false)
       return
     }
 
@@ -54,8 +57,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
+        setProfileLoading(true)
         fetchProfile(session.user.id)
         Sentry.setUser({ id: session.user.id })
+      } else {
+        setProfileLoading(false)
       }
       setLoading(false)
     })
@@ -64,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
+        setProfileLoading(true)
         Sentry.setUser({ id: session.user.id })
         // On fresh login/signup, fetch profile then navigate
         if (event === 'SIGNED_IN') {
@@ -82,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         setProfile(null)
+        setProfileLoading(false)
         Sentry.setUser(null)
       }
     })
@@ -90,13 +98,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   async function fetchProfile(userId: string): Promise<Profile | null> {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    if (data) setProfile(data as Profile)
-    return (data as Profile) || null
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (data) setProfile(data as Profile)
+      return (data as Profile) || null
+    } finally {
+      setProfileLoading(false)
+    }
   }
 
   async function signUp(email: string, password: string, fullName?: string) {
@@ -143,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, profile, session, loading,
+      user, profile, session, loading, profileLoading,
       isDemo: isDemoMode,
       signUp, signIn, signOut, updateProfile,
     }}>
