@@ -272,10 +272,11 @@ export default function DashboardPage() {
                 {inquiries.map(inq => {
                   const summary = inq.inquiry_summary || inq.parsed_data?.inquiry_summary || null
                   const replyHref = inq.email_from ? `mailto:${inq.email_from.replace(/.*<(.+)>/, '$1')}` : null
+                  const displayName = inq.parsed_data?.guest_name || inq.email_from || '(nepoznat)'
                   return (
                     <div key={inq.id} className="px-4 py-3">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <span className="text-sm font-medium text-text truncate">{inq.email_from || '(nepoznat)'}</span>
+                        <span className="text-sm font-medium text-text truncate">{displayName}</span>
                         <span className="text-[11px] text-text-muted flex-shrink-0">
                           {inq.email_received_at
                             ? new Date(inq.email_received_at).toLocaleDateString('hr-HR', { day: 'numeric', month: 'short' })
