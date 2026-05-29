@@ -89,7 +89,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const authHeader = (req.headers.authorization || req.headers.Authorization) as string | undefined
   const botToken = (process.env.BOT_BEARER_TOKEN || '').trim()
-  const isBotAuth = botToken && authHeader === `Bearer ${botToken}`
+  const cronSecret = (process.env.CRON_SECRET || '').trim()
+  const isBotAuth = (botToken && authHeader === `Bearer ${botToken}`)
+    || (cronSecret && authHeader === `Bearer ${cronSecret}`)
 
   // === CRON MODE: renew all active watches ===
   if (req.method === 'GET' && isBotAuth) {

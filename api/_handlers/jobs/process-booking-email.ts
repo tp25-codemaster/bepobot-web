@@ -256,12 +256,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(401).json({ error: 'Invalid QStash signature' })
     return
   }
-  process.stdout.write('[process-email] QStash verified, processing job\n')
+  console.log('[process-email] QStash verified, processing job')
 
   try {
     await processEmailJob(req, res)
   } catch (e) {
-    process.stderr.write(`[process-email] UNCAUGHT FATAL: ${(e as Error).message}\n${(e as Error).stack || ''}\n`)
+    console.error('[process-email] UNCAUGHT FATAL:', (e as Error).message, (e as Error).stack)
     try { res.status(500).json({ error: 'Fatal: ' + (e as Error).message }) } catch {}
   }
 }
@@ -269,10 +269,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 async function processEmailJob(req: VercelRequest, res: VercelResponse) {
   const payload = (req.body || {}) as Partial<WorkerPayload>
   const { user_id, email_id } = payload
-  process.stdout.write(`[process-email] payload user_id=${user_id} email_id=${email_id}\n`)
+  console.log(`[process-email] payload user_id=${user_id} email_id=${email_id}`)
 
   if (!user_id || !email_id) {
-    process.stderr.write(`[process-email] missing payload, body=${JSON.stringify(req.body)}\n`)
+    console.error('[process-email] missing payload, body=', JSON.stringify(req.body))
     res.status(400).json({ error: 'Missing required fields: user_id, email_id' })
     return
   }
@@ -280,9 +280,8 @@ async function processEmailJob(req: VercelRequest, res: VercelResponse) {
   let admin
   try {
     admin = getSupabaseAdmin()
-    process.stdout.write('[process-email] admin ok\n')
   } catch (e) {
-    process.stderr.write(`[process-email] getSupabaseAdmin threw: ${(e as Error).message}\n`)
+    console.error('[process-email] getSupabaseAdmin threw:', (e as Error).message)
     res.status(500).json({ error: 'Supabase admin init failed: ' + (e as Error).message })
     return
   }
@@ -410,6 +409,30 @@ async function processEmailJob(req: VercelRequest, res: VercelResponse) {
     parsed.guest_phone ? `tel: ${parsed.guest_phone}` : null,
   ].filter(Boolean)
 
+  // Fuzzy match apartment_name_raw against user's apartments
+  let matchedApartmentId: string | null = null
+  if (parsed.apartment_name) {
+    const { data: userApartments } = await admin
+      .from('apartments')
+      .select('id, name')
+      .eq('user_id', user_id)
+    if (userApartments && userApartments.length > 0) {
+      const needle = parsed.apartment_name.toLowerCase().trim()
+      // Exact match first
+      let match = userApartments.find(
+        (a: { id: string; name: string }) => a.name.toLowerCase().trim() === needle
+      )
+      // Partial match if no exact
+      if (!match) {
+        match = userApartments.find(
+          (a: { id: string; name: string }) =>
+            a.name.toLowerCase().includes(needle) || needle.includes(a.name.toLowerCase().trim())
+        )
+      }
+      if (match) matchedApartmentId = match.id
+    }
+  }
+
   const { error: insertErr } = await admin.from('pending_reservations').insert({
     user_id,
     gmail_message_id: email_id,
@@ -419,6 +442,7 @@ async function processEmailJob(req: VercelRequest, res: VercelResponse) {
     check_out: parsed.check_out_date,
     platform: parsed.source || 'other',
     apartment_name_raw: parsed.apartment_name || null,
+    apartment_id: matchedApartmentId,
     status: 'pending',
     notes: contactParts.length > 0 ? contactParts.join(' | ') : null,
   })
