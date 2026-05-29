@@ -1,235 +1,199 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
+import {
+  getWelcomeMessages,
+  processOnboardingInput,
+  type OnboardingState,
+} from '../lib/onboarding'
 
-const STEPS = ['Dobrodošli', 'Gmail', 'Apartman', 'Gotovo']
-
-function ProgressBar({ currentStep }: { currentStep: number }) {
-  const pct = ((currentStep - 1) / (STEPS.length - 1)) * 100
-  return (
-    <div className="relative flex items-start justify-between w-full mb-10 px-5">
-      <div className="absolute top-5 left-10 right-10 h-0.5 bg-gray-200" />
-      <div
-        className="absolute top-5 left-10 h-0.5 bg-blue-600 transition-all duration-500"
-        style={{ width: `calc(${pct}% * (100% - 5rem) / 100)` }}
-      />
-      {STEPS.map((label, i) => {
-        const n = i + 1
-        const done = n < currentStep
-        const active = n === currentStep
-        return (
-          <div key={i} className="relative flex flex-col items-center z-10">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center border-2 font-semibold text-sm transition-all duration-300
-                ${done ? 'bg-blue-600 border-blue-600 text-white'
-                  : active ? 'bg-white border-blue-600 text-blue-600'
-                  : 'bg-white border-gray-200 text-gray-400'}`}
-            >
-              {done ? '✓' : n}
-            </div>
-            <span className={`mt-2 text-xs whitespace-nowrap font-medium transition-colors
-              ${active ? 'text-blue-600' : done ? 'text-gray-500' : 'text-gray-300'}`}>
-              {label}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
+interface Msg {
+  role: 'bot' | 'user'
+  text: string
 }
 
 export function Onboarding() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
+  const [messages, setMessages] = useState<Msg[]>([])
+  const [input, setInput] = useState('')
+  const [state, setState] = useState<OnboardingState>({ step: 'welcome' })
+  const [done, setDone] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const [step, setStep] = useState(() => {
-    const saved = localStorage.getItem('bepobot_onboarding_step')
-    return saved ? parseInt(saved, 10) : 1
-  })
-  const [apartmentName, setApartmentName] = useState('')
-  const [evisitorCode, setEvisitorCode] = useState('')
-  const [apartmentError, setApartmentError] = useState('')
-  const [apartmentLoading, setApartmentLoading] = useState(false)
-
-  const goToStep = (n: number) => {
-    setStep(n)
-    localStorage.setItem('bepobot_onboarding_step', String(n))
-  }
-
-  // Auto-advance step 2 → 3 when user returns from Gmail OAuth
+  // Kick off welcome messages
   useEffect(() => {
-    if (step === 2 && profile?.gmail_connected) {
-      goToStep(3)
-    }
-  }, [profile?.gmail_connected, step])
+    const welcome = getWelcomeMessages()
+    let delay = 300
+    welcome.forEach((msg, i) => {
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { role: 'bot', text: msg }])
+        if (i === welcome.length - 1) {
+          setState((s) => ({ ...s, step: 'ask_name' }))
+        }
+      }, delay)
+      delay += 600
+    })
+  }, [])
 
-  const handleAddApartment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setApartmentError('')
-    setApartmentLoading(true)
-    try {
-      const res = await fetch('/api/apartments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: apartmentName, evisitor_facility_code: evisitorCode }),
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!done) inputRef.current?.focus()
+  }, [messages, done])
+
+  async function handleSend() {
+    const text = input.trim()
+    if (!text || done) return
+    setInput('')
+
+    setMessages((prev) => [...prev, { role: 'user', text }])
+
+    const result = processOnboardingInput(text, state)
+    setState(result.state)
+
+    // Side effects
+    if (result.action === 'save_name' && result.actionData && user) {
+      await supabase.from('profiles').update({
+        full_name: result.actionData.fullName,
+      }).eq('id', user.id)
+    }
+
+    if (result.action === 'save_apartment' && result.actionData && user) {
+      await supabase.from('apartments').insert({
+        user_id: user.id,
+        name: result.actionData.name,
+        wifi_password: result.actionData.wifi || null,
       })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string }
-        throw new Error(data.error ?? 'Greška pri dodavanju apartmana')
-      }
-      goToStep(4)
-    } catch (err) {
-      setApartmentError(err instanceof Error ? err.message : 'Greška pri dodavanju apartmana')
-    } finally {
-      setApartmentLoading(false)
+    }
+
+    if (result.action === 'save_cleaner' && result.actionData && user) {
+      const contact = result.actionData.contact || ''
+      const isEmail = contact.includes('@')
+      await supabase.from('contacts').insert({
+        user_id: user.id,
+        name: result.actionData.name,
+        role: 'cleaner',
+        email: isEmail ? contact : null,
+        phone: !isEmail ? contact : null,
+      })
+    }
+
+    if (result.action === 'open_gmail') {
+      window.open('/api/gmail-connect', '_self')
+    }
+
+    if (result.action === 'open_evisitor') {
+      // Just show the message, user goes there manually
+    }
+
+    if (result.action === 'complete_onboarding' && user) {
+      await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id)
+      setDone(true)
+    }
+
+    // Show bot replies with slight delay between each
+    let delay = 400
+    result.botMessages.forEach((msg) => {
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { role: 'bot', text: msg }])
+      }, delay)
+      delay += 500
+    })
+
+    // Navigate after onboarding completes
+    if (result.nextStep === 'complete') {
+      setTimeout(() => navigate('/app'), delay + 1500)
     }
   }
 
-  const handleFinish = () => {
-    localStorage.removeItem('bepobot_onboarding_step')
-    navigate('/app')
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
   }
+
+  // If Gmail OAuth just returned, auto-advance
+  useEffect(() => {
+    if (profile?.gmail_connected && state.step === 'ask_gmail') {
+      const result = processOnboardingInput('gotovo', state)
+      setState(result.state)
+      result.botMessages.forEach((msg, i) => {
+        setTimeout(() => {
+          setMessages((prev) => [...prev, { role: 'bot', text: msg }])
+        }, i * 500)
+      })
+    }
+  }, [profile?.gmail_connected])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
-      <div className="w-full max-w-lg bg-white shadow-lg rounded-2xl p-8">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-            <span className="text-white text-sm font-bold">B</span>
-          </div>
-          <span className="font-bold text-gray-800 text-lg">BepoBot</span>
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Header */}
+      <div className="flex items-center gap-2.5 px-4 py-3 bg-white border-b border-gray-100 shadow-sm">
+        <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+          <span className="text-white text-sm font-bold">B</span>
         </div>
-
-        <ProgressBar currentStep={step} />
-
-        {/* Korak 1 — Dobrodošli */}
-        {step === 1 && (
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">Dobrodošli u BepoBot!</h2>
-            <p className="text-gray-500 mb-8 leading-relaxed">
-              Postavi račun za 3 minute. Vodimo te kroz: povezivanje Gmaila, dodavanje prvog apartmana i unos eVisitor koda.
-            </p>
-            <button
-              onClick={() => goToStep(2)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-            >
-              Počnimo →
-            </button>
-          </div>
-        )}
-
-        {/* Korak 2 — Poveži Gmail */}
-        {step === 2 && (
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">Poveži Gmail</h2>
-            <p className="text-gray-500 mb-2 leading-relaxed">
-              BepoBot čita booking e-mailove iz tvog Gmaila i automatski kreira rezervacije — bez ručnog unosa.
-            </p>
-            <p className="text-xs text-gray-400 mb-8">Pristupamo samo booking e-mailovima, ničem drugom.</p>
-
-            {profile?.gmail_connected ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-center gap-2 text-green-600 bg-green-50 rounded-xl py-3 font-medium">
-                  <span>✓</span>
-                  <span>Gmail je povezan{profile.gmail_email ? ` (${profile.gmail_email})` : ''}</span>
-                </div>
-                <button
-                  onClick={() => goToStep(3)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-                >
-                  Nastavi →
-                </button>
-              </div>
-            ) : (
-              <a
-                href="/api/auth/gmail"
-                className="flex items-center justify-center gap-3 w-full bg-white border-2 border-gray-200 hover:border-blue-400 text-gray-700 font-semibold py-3 px-6 rounded-xl transition-colors"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
-                </svg>
-                Poveži Gmail račun
-              </a>
-            )}
-
-            <button onClick={() => goToStep(1)} className="mt-5 text-sm text-gray-400 hover:text-gray-600 transition-colors">
-              ← Natrag
-            </button>
-          </div>
-        )}
-
-        {/* Korak 3 — Dodaj apartman */}
-        {step === 3 && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">Dodaj apartman</h2>
-            <p className="text-gray-500 mb-6 text-center text-sm">Možeš dodati još apartmana poslije u postavkama.</p>
-
-            <form onSubmit={handleAddApartment} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Naziv apartmana</label>
-                <input
-                  type="text"
-                  value={apartmentName}
-                  onChange={e => setApartmentName(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="npr. Apartman Bura, Studio More"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">eVisitor kod objekta</label>
-                <input
-                  type="text"
-                  value={evisitorCode}
-                  onChange={e => setEvisitorCode(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="npr. HR-51000-12345"
-                  required
-                />
-                <p className="text-xs text-gray-400 mt-1.5">
-                  Nalaziš ga u eVisitor portalu → Moji objekti → Kod objekta
-                </p>
-              </div>
-
-              {apartmentError && (
-                <div className="bg-red-50 text-red-600 text-sm rounded-xl px-4 py-3">
-                  {apartmentError}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={apartmentLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-              >
-                {apartmentLoading ? 'Dodajem...' : 'Dodaj apartman →'}
-              </button>
-            </form>
-
-            <button onClick={() => goToStep(2)} className="mt-4 w-full text-sm text-gray-400 hover:text-gray-600 transition-colors">
-              ← Natrag
-            </button>
-          </div>
-        )}
-
-        {/* Korak 4 — Gotovo */}
-        {step === 4 && (
-          <div className="text-center">
-            <div className="text-5xl mb-5">🎉</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">Sve je postavljeno!</h2>
-            <p className="text-gray-500 mb-8 leading-relaxed">
-              BepoBot je spreman. Čim stigne booking e-mail, rezervacija će se pojaviti automatski u dashboardu.
-            </p>
-            <button
-              onClick={handleFinish}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-            >
-              Idi na dashboard →
-            </button>
-          </div>
-        )}
+        <div>
+          <p className="font-semibold text-gray-800 text-sm leading-tight">BepoBot</p>
+          <p className="text-xs text-green-500 leading-tight">Postavljanje računa</p>
+        </div>
       </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            {msg.role === 'bot' && (
+              <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
+                <span className="text-white text-xs font-bold">B</span>
+              </div>
+            )}
+            <div
+              className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                msg.role === 'user'
+                  ? 'bg-blue-600 text-white rounded-br-sm'
+                  : 'bg-white text-gray-800 shadow-sm rounded-bl-sm border border-gray-100'
+              }`}
+            >
+              {msg.text}
+            </div>
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      {!done && (
+        <div className="px-4 py-3 bg-white border-t border-gray-100">
+          <div className="flex gap-2 items-center">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Odgovori ovdje..."
+              className="flex-1 px-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+            />
+            <button
+              onClick={handleSend}
+              disabled={!input.trim()}
+              className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
+          <p className="text-center text-xs text-gray-400 mt-2">Preskoci → upiši "preskoci"</p>
+        </div>
+      )}
     </div>
   )
 }
