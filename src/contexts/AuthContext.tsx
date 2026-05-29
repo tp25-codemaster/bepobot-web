@@ -85,38 +85,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(email: string, password: string, fullName?: string) {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: fullName } },
     })
     if (error) return { error: translateError(error.message) }
 
-    // Update profile with full name if provided
-    if (fullName && user) {
-      await supabase.from('profiles').update({ full_name: fullName }).eq('id', user.id)
+    if (fullName && data.user) {
+      await supabase.from('profiles').update({ full_name: fullName }).eq('id', data.user.id)
     }
+
+    navigate('/onboarding')
     return { error: null }
   }
 
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { error: translateError(error.message) }
 
-    // After successful login, check for apartments
-    const { data: apartments, error: apartmentsError } = await supabase
-      .from('apartments')
-      .select('id')
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('onboarding_complete')
+      .eq('id', signInData.user.id)
+      .single()
 
-    if (apartmentsError) {
-      console.error('Error fetching apartments:', apartmentsError)
-      return { error: 'Greška prilikom provjere apartmana.' }
-    }
-
-    if (!apartments || apartments.length === 0) {
+    if (!prof?.onboarding_complete) {
       navigate('/onboarding')
     } else {
-      navigate('/')
+      navigate('/app')
     }
 
     return { error: null }
